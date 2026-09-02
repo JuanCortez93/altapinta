@@ -73,6 +73,16 @@ export const movimientoCategoriaEnum = pgEnum("movimiento_categoria", [
   "deposito_tesoro",
   "ajuste_arqueo",
   "fondo_inicial",
+  "provision_sueldo",
+]);
+
+/** Subcategoría de un movimiento con categoria = "gasto". */
+export const gastoCategoriaEnum = pgEnum("gasto_categoria", [
+  "envios",
+  "personal_eventual",
+  "insumos",
+  "servicios",
+  "otros",
 ]);
 
 export const arqueoMomentoEnum = pgEnum("arqueo_momento", [
@@ -373,6 +383,8 @@ export const moneyMovements = pgTable("money_movements", {
   fecha: date("fecha").notNull(),
   tipo: movimientoTipoEnum("tipo").notNull(),
   categoria: movimientoCategoriaEnum("categoria").notNull(),
+  /** Subcategoría, sólo cuando categoria = "gasto". */
+  gastoCategoria: gastoCategoriaEnum("gasto_categoria"),
   cuentaId: integer("cuenta_id")
     .notNull()
     .references(() => moneyAccounts.id),

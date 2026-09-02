@@ -113,8 +113,8 @@ Notas:
 
 | Fase | Alcance |
 |---|---|
-| **0 — Base** | Scaffold Next.js + Drizzle + Supabase, esquema completo, seed. |
-| **1 — MVP plata** | Catálogo, cuentas, parte de turno, movimientos (gastos / retiros / depósito a tesoro), arqueo de Caja chica por turno, dashboard del día. |
+| **0 — Base** ✅ | Scaffold Next.js + Drizzle + Supabase, esquema completo, seed. |
+| **1 — MVP plata** 🚧 | Login con contraseña compartida · **Cierre de turno** (ventas, gastos dinámicos con categorías, arqueo de Caja chica a ciegas, cierre del día con barrido al Tesoro y arqueo de Mercado Pago) · **Hoy** (dashboard del día) · **Cierres** (historial) · **Cuentas** (saldos + movimientos). |
 | **2 — Stock** | Compras por lote (kg + fecha + precio), salidas registradas, checklist diario a ciegas, inventario completo por zona, reporte de antigüedad. |
 | **3 — Conciliación + producción** | Conciliación venta vs stock, recetas y órdenes de producción, margen por producto. |
 | **4 — Promos + 2ª sucursal** | Promociones + panel de candidatos, alta de la segunda sucursal. |
@@ -138,9 +138,16 @@ npm run db:seed                   # carga sucursal, usuarios, cuentas, categorí
 npm run dev
 ```
 
-En Supabase, `DATABASE_URL` es el **transaction pooler** (6543, para la app en
-Vercel) y `DIRECT_URL` el **session pooler** (5432, para migraciones y seed).
-En Vercel hay que cargar ambas en las Environment Variables del proyecto.
+### Variables de entorno
+
+| Variable | Para qué |
+|---|---|
+| `DATABASE_URL` | Supabase **transaction pooler** (6543). La usa la app. |
+| `DIRECT_URL` | Supabase **session pooler** (5432). La usan migraciones y seed. |
+| `AUTH_SECRET` | Firma la cookie de sesión. `openssl rand -base64 32`. |
+| `APP_PASSWORD` | Contraseña única para entrar a la app (v1). |
+
+En Vercel hay que cargar las cuatro en las Environment Variables del proyecto.
 
 Comandos de base de datos:
 
