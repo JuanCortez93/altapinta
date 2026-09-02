@@ -113,7 +113,7 @@ Notas:
 
 | Fase | Alcance |
 |---|---|
-| **0 — Base** | Scaffold Next.js + Drizzle + Neon, esquema completo, seed. |
+| **0 — Base** | Scaffold Next.js + Drizzle + Supabase, esquema completo, seed. |
 | **1 — MVP plata** | Catálogo, cuentas, parte de turno, movimientos (gastos / retiros / depósito a tesoro), arqueo de Caja chica por turno, dashboard del día. |
 | **2 — Stock** | Compras por lote (kg + fecha + precio), salidas registradas, checklist diario a ciegas, inventario completo por zona, reporte de antigüedad. |
 | **3 — Conciliación + producción** | Conciliación venta vs stock, recetas y órdenes de producción, margen por producto. |
@@ -125,19 +125,22 @@ Notas:
 
 - **Next.js 16** (App Router) + React 19 + TypeScript
 - **Tailwind CSS v4**
-- **Drizzle ORM** + **Neon** (PostgreSQL serverless)
+- **Drizzle ORM** + **Supabase** (PostgreSQL) — driver `postgres` (postgres.js)
 - Deploy en **Vercel**
 
 ## Puesta en marcha
 
 ```bash
 npm install
-cp .env.example .env.local        # y pegá la connection string de Neon
-npm run db:generate               # genera la migración desde el esquema
-npm run db:migrate                # la aplica en Neon
+cp .env.example .env.local        # pegá las connection strings de Supabase (botón "Connect")
+npm run db:migrate                # aplica la migración inicial (usa DIRECT_URL)
 npm run db:seed                   # carga sucursal, usuarios, cuentas, categorías
 npm run dev
 ```
+
+En Supabase, `DATABASE_URL` es el **transaction pooler** (6543, para la app en
+Vercel) y `DIRECT_URL` el **session pooler** (5432, para migraciones y seed).
+En Vercel hay que cargar ambas en las Environment Variables del proyecto.
 
 Comandos de base de datos:
 

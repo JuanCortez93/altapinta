@@ -8,16 +8,18 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("Falta DATABASE_URL (definila en .env.local)");
+const url = process.env.DIRECT_URL || process.env.DATABASE_URL;
+if (!url) {
+  throw new Error("Falta DATABASE_URL / DIRECT_URL (definila en .env.local)");
 }
 
-const db = drizzle(neon(process.env.DATABASE_URL), { schema });
+const client = postgres(url, { prepare: false });
+const db = drizzle(client, { schema });
 
 async function main() {
   // ---- Sucursal -------------------------------------------------------
@@ -114,9 +116,11 @@ async function main() {
   }
 
   console.log("\nSeed listo.");
+  await client.end();
 }
 
-main().catch((e) => {
+main().catch(async (e) => {
   console.error(e);
+  await client.end();
   process.exit(1);
 });
