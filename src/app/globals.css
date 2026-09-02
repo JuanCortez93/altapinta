@@ -1,26 +1,126 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ------------------------------------------------------------------ *
+ * Alta Pinta — design tokens
+ * Register: product. Color strategy: Restrained.
+ * Neutrals tinted toward brand navy. Blue is the functional accent;
+ * gold is identity-only. Green / red / amber carry state, not brand.
+ * ------------------------------------------------------------------ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  color-scheme: light;
+
+  --canvas: oklch(0.975 0.005 245);
+  --surface: oklch(0.995 0.003 245);
+  --surface-2: oklch(0.96 0.008 248);
+
+  --ink: oklch(0.28 0.03 255);
+  --muted: oklch(0.52 0.022 255);
+  --subtle: oklch(0.64 0.016 255);
+
+  --line: oklch(0.9 0.008 255);
+  --line-strong: oklch(0.82 0.012 255);
+
+  --accent: oklch(0.52 0.15 253);
+  --accent-hover: oklch(0.46 0.15 253);
+  --accent-weak: oklch(0.95 0.032 253);
+  --on-accent: oklch(0.99 0.01 253);
+
+  --gold: oklch(0.77 0.14 76);
+  --gold-strong: oklch(0.7 0.15 66);
+
+  --pos: oklch(0.55 0.13 155);
+  --pos-weak: oklch(0.95 0.04 155);
+  --neg: oklch(0.55 0.2 25);
+  --neg-weak: oklch(0.95 0.05 25);
+  --warn: oklch(0.72 0.14 85);
+  --warn-weak: oklch(0.95 0.05 85);
+
+  --ring: oklch(0.52 0.15 253 / 0.45);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+
+    --canvas: oklch(0.2 0.02 260);
+    --surface: oklch(0.24 0.022 260);
+    --surface-2: oklch(0.22 0.025 262);
+
+    --ink: oklch(0.94 0.01 250);
+    --muted: oklch(0.72 0.016 250);
+    --subtle: oklch(0.58 0.016 250);
+
+    --line: oklch(0.34 0.016 258);
+    --line-strong: oklch(0.44 0.02 258);
+
+    --accent: oklch(0.68 0.14 250);
+    --accent-hover: oklch(0.74 0.13 250);
+    --accent-weak: oklch(0.3 0.05 252);
+    --on-accent: oklch(0.18 0.02 258);
+
+    --gold: oklch(0.8 0.13 78);
+    --gold-strong: oklch(0.74 0.14 70);
+
+    --pos: oklch(0.72 0.13 158);
+    --pos-weak: oklch(0.32 0.05 158);
+    --neg: oklch(0.7 0.16 25);
+    --neg-weak: oklch(0.33 0.07 25);
+    --warn: oklch(0.82 0.12 85);
+    --warn-weak: oklch(0.34 0.05 85);
+
+    --ring: oklch(0.68 0.14 250 / 0.5);
   }
 }
 
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-weak: var(--accent-weak);
+  --color-on-accent: var(--on-accent);
+  --color-gold: var(--gold);
+  --color-gold-strong: var(--gold-strong);
+  --color-pos: var(--pos);
+  --color-pos-weak: var(--pos-weak);
+  --color-neg: var(--neg);
+  --color-neg-weak: var(--neg-weak);
+  --color-warn: var(--warn);
+  --color-warn-weak: var(--warn-weak);
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  background: var(--canvas);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Números de plata: alineados en columna. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Foco visible y consistente en toda la app. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid transparent;
+    box-shadow: 0 0 0 3px var(--ring);
+    border-radius: 6px;
+  }
 }

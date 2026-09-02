@@ -31,11 +31,10 @@ const ICONS: Record<string, LucideIcon> = {
   Receipt,
 };
 
-const inputCls =
-  "h-11 w-full rounded-lg border border-black/15 bg-white px-3 text-base outline-none focus:border-black/40 dark:border-white/20 dark:bg-zinc-900";
-const labelCls = "text-sm font-medium text-zinc-700 dark:text-zinc-300";
-const card =
-  "rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950";
+const field =
+  "h-11 w-full rounded-lg border border-line bg-canvas px-3 text-base outline-none transition-colors focus:border-accent";
+const label = "text-sm font-medium text-muted";
+const section = "rounded-2xl border border-line bg-surface p-4";
 
 type Linea = {
   id: string;
@@ -74,7 +73,7 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
   const [lineas, setLineas] = useState<Linea[]>([]);
   const [efectivoContado, setEfectivoContado] = useState("");
   const [notaArqueo, setNotaArqueo] = useState("");
-  const [esCierreDia, setEsCierreDia] = useState(turno !== "manana");
+  const [esCierreDia, setEsCierreDia] = useState(primerTurnoLibre !== "manana");
   const [efectivoATesoro, setEfectivoATesoro] = useState("");
   const [saldoMpApp, setSaldoMpApp] = useState("");
   const [observaciones, setObservaciones] = useState("");
@@ -143,7 +142,8 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
         notaArqueo: notaArqueo.trim(),
         esCierreDia,
         efectivoATesoro: num(efectivoATesoro),
-        saldoMpApp: esCierreDia && saldoMpApp.trim() !== "" ? num(saldoMpApp) : null,
+        saldoMpApp:
+          esCierreDia && saldoMpApp.trim() !== "" ? num(saldoMpApp) : null,
         observaciones: observaciones.trim(),
       });
       setResult(res);
@@ -151,17 +151,15 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
     });
   }
 
-  if (result?.ok) {
-    return <Resultado result={result} turno={turno} />;
-  }
+  if (result?.ok) return <Resultado result={result} turno={turno} />;
 
   return (
     <div className="flex flex-col gap-4">
       {/* Datos del turno */}
-      <section className={card}>
+      <section className={section}>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label className={labelCls} htmlFor="fecha">
+            <label className={label} htmlFor="fecha">
               Fecha
             </label>
             <input
@@ -169,11 +167,11 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              className={inputCls}
+              className={field}
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className={labelCls}>Turno</span>
+            <span className={label}>Turno</span>
             <div className="flex gap-1.5">
               {(["manana", "tarde", "domingo"] as const).map((t) => (
                 <button
@@ -183,9 +181,11 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
                   className={
                     "h-11 flex-1 rounded-lg border text-sm font-medium transition-colors " +
                     (turno === t
-                      ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900"
-                      : "border-black/15 text-zinc-600 dark:border-white/20 dark:text-zinc-300") +
-                    (turnosHechos.includes(t) ? " opacity-50" : "")
+                      ? "border-accent bg-accent text-on-accent"
+                      : "border-line text-muted hover:bg-surface-2") +
+                    (turnosHechos.includes(t) && turno !== t
+                      ? " opacity-45"
+                      : "")
                   }
                 >
                   {labelTurno(t)}
@@ -193,53 +193,31 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
               ))}
             </div>
             {turnosHechos.includes(turno) && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                Ya hay un cierre para este turno hoy — no se va a poder guardar
-                dos veces.
+              <p className="text-xs text-warn">
+                Ya hay un cierre para este turno hoy. No se va a poder guardar
+                otro.
               </p>
             )}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelCls} htmlFor="admin">
-              Quién cierra
-            </label>
-            <select
-              id="admin"
-              value={adminId}
-              onChange={(e) => setAdminId(e.target.value)}
-              className={inputCls}
-            >
-              <option value="">Elegir…</option>
-              {usuarios.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelCls} htmlFor="vendedor">
-              Quién atendió
-            </label>
-            <select
-              id="vendedor"
-              value={vendedorId}
-              onChange={(e) => setVendedorId(e.target.value)}
-              className={inputCls}
-            >
-              <option value="">Elegir…</option>
-              {usuarios.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            id="admin"
+            label="Quién cierra"
+            value={adminId}
+            onChange={setAdminId}
+            options={usuarios}
+          />
+          <Select
+            id="vendedor"
+            label="Quién atendió"
+            value={vendedorId}
+            onChange={setVendedorId}
+            options={usuarios}
+          />
         </div>
       </section>
 
       {/* Ventas */}
-      <section className={card}>
+      <section className={section}>
         <h2 className="mb-3 font-medium">Ventas del turno</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Money
@@ -255,19 +233,21 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
             onChange={setVentaTransferencia}
           />
         </div>
-        <p className="mt-3 text-sm text-zinc-500">
-          Total declarado:{" "}
-          <span className="font-medium text-zinc-900 dark:text-zinc-100">
+        <p className="mt-3 text-sm text-subtle">
+          Total declarado{" "}
+          <span className="tnum font-semibold text-ink">
             {fmtARS(num(ventaEfectivo) + num(ventaTransferencia))}
           </span>
         </p>
       </section>
 
       {/* Gastos y salidas */}
-      <section className={card}>
+      <section className={section}>
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="font-medium">Gastos y salidas</h2>
-          <span className="text-sm text-zinc-500">{fmtARS(totalSalidas)}</span>
+          <span className="tnum text-sm text-subtle">
+            {fmtARS(totalSalidas)}
+          </span>
         </div>
 
         <div className="mb-3 flex flex-wrap gap-2">
@@ -300,9 +280,9 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
         </div>
 
         {lineas.length === 0 ? (
-          <p className="text-sm text-zinc-500">Sin gastos cargados.</p>
+          <p className="text-sm text-subtle">Sin gastos cargados.</p>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-2.5">
             {lineas.map((l) => {
               const def = catDef(l.categoria);
               const Icon = def ? ICONS[def.icon] ?? Receipt : Receipt;
@@ -310,10 +290,10 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
               return (
                 <li
                   key={l.id}
-                  className="rounded-lg border border-black/10 p-3 dark:border-white/10"
+                  className="rounded-xl border border-line bg-canvas p-3"
                 >
                   <div className="flex items-center gap-2">
-                    <Icon className="size-4 shrink-0 text-zinc-500" />
+                    <Icon className="size-4 shrink-0 text-subtle" />
                     <select
                       value={l.categoria}
                       onChange={(e) =>
@@ -321,7 +301,7 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
                           categoria: e.target.value as SalidaCategoria,
                         })
                       }
-                      className="h-9 flex-1 rounded-md border border-black/15 bg-white px-2 text-sm dark:border-white/20 dark:bg-zinc-900"
+                      className="h-9 flex-1 rounded-md border border-line bg-surface px-2 text-sm"
                     >
                       {SALIDA_CATEGORIAS.map((c) => (
                         <option key={c.value} value={c.value}>
@@ -332,8 +312,8 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
                     <button
                       type="button"
                       onClick={() => delLinea(l.id)}
-                      className="rounded-md p-1.5 text-zinc-400 hover:bg-black/5 hover:text-red-600 dark:hover:bg-white/10"
-                      aria-label="Quitar"
+                      className="rounded-md p-1.5 text-subtle transition-colors hover:bg-neg-weak hover:text-neg"
+                      aria-label="Quitar gasto"
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -350,23 +330,23 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
                       onChange={(e) =>
                         updLinea(l.id, { detalle: e.target.value })
                       }
-                      className="h-10 rounded-md border border-black/15 bg-white px-2.5 text-sm dark:border-white/20 dark:bg-zinc-900"
+                      className="h-10 rounded-md border border-line bg-surface px-2.5 text-sm"
                     />
                     <input
                       inputMode="decimal"
                       placeholder="Monto"
                       value={l.monto}
                       onChange={(e) => updLinea(l.id, { monto: e.target.value })}
-                      className="h-10 rounded-md border border-black/15 bg-white px-2.5 text-sm dark:border-white/20 dark:bg-zinc-900"
+                      className="tnum h-10 rounded-md border border-line bg-surface px-2.5 text-sm"
                     />
                   </div>
                   {esProv ? (
-                    <p className="mt-1.5 text-xs text-zinc-500">
-                      Se aparta a la cuenta Provisión de sueldos (no es un gasto).
+                    <p className="mt-1.5 text-xs text-subtle">
+                      Se aparta a la cuenta Provisión de sueldos. No es un gasto.
                     </p>
                   ) : (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-                      <span>Pagado con</span>
+                    <label className="mt-2 flex items-center gap-2 text-xs text-subtle">
+                      Pagado con
                       <select
                         value={l.cuenta}
                         onChange={(e) =>
@@ -374,12 +354,12 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
                             cuenta: e.target.value as Linea["cuenta"],
                           })
                         }
-                        className="h-8 rounded-md border border-black/15 bg-white px-2 text-xs dark:border-white/20 dark:bg-zinc-900"
+                        className="h-8 rounded-md border border-line bg-surface px-2 text-xs"
                       >
                         <option value="caja_chica">Caja chica</option>
                         <option value="mercado_pago">Mercado Pago</option>
                       </select>
-                    </div>
+                    </label>
                   )}
                 </li>
               );
@@ -394,9 +374,9 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
       </section>
 
       {/* Arqueo caja chica */}
-      <section className={card}>
-        <h2 className="mb-1 font-medium">Arqueo de Caja chica</h2>
-        <p className="mb-3 text-xs text-zinc-500">
+      <section className={section}>
+        <h2 className="font-medium">Arqueo de Caja chica</h2>
+        <p className="mb-3 mt-1 text-xs text-subtle">
           Contá el efectivo que hay en la caja. La diferencia contra el teórico
           se muestra recién al guardar.
         </p>
@@ -408,14 +388,14 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
             onChange={setEfectivoContado}
           />
           <div className="flex flex-col gap-1.5">
-            <label className={labelCls} htmlFor="nota-arqueo">
+            <label className={label} htmlFor="nota-arqueo">
               Nota (opcional)
             </label>
             <input
               id="nota-arqueo"
               value={notaArqueo}
               onChange={(e) => setNotaArqueo(e.target.value)}
-              className={inputCls}
+              className={field}
               placeholder="Si sobró o faltó, por qué"
             />
           </div>
@@ -423,13 +403,13 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
       </section>
 
       {/* Cierre del día */}
-      <section className={card}>
-        <label className="flex items-center gap-2">
+      <section className={section}>
+        <label className="flex items-center gap-2.5">
           <input
             type="checkbox"
             checked={esCierreDia}
             onChange={(e) => setEsCierreDia(e.target.checked)}
-            className="size-4"
+            className="size-4 accent-[var(--accent)]"
           />
           <span className="font-medium">Es el último turno del día</span>
         </label>
@@ -452,8 +432,8 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
       </section>
 
       {/* Observaciones */}
-      <section className={card}>
-        <label className={labelCls} htmlFor="obs">
+      <section className={section}>
+        <label className={label} htmlFor="obs">
           Observaciones (opcional)
         </label>
         <textarea
@@ -461,12 +441,12 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
           value={observaciones}
           onChange={(e) => setObservaciones(e.target.value)}
           rows={2}
-          className="mt-1.5 w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-base outline-none focus:border-black/40 dark:border-white/20 dark:bg-zinc-900"
+          className="mt-1.5 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-base outline-none transition-colors focus:border-accent"
         />
       </section>
 
       {error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <p className="rounded-lg bg-neg-weak px-3 py-2 text-sm font-medium text-neg">
           {error}
         </p>
       )}
@@ -475,7 +455,7 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
         type="button"
         onClick={submit}
         disabled={pending}
-        className="h-12 rounded-xl bg-zinc-900 text-base font-semibold text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+        className="h-12 rounded-xl bg-accent text-base font-semibold text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-60"
       >
         {pending ? "Guardando…" : "Guardar cierre"}
       </button>
@@ -483,9 +463,44 @@ export function CierreForm({ hoy, usuarios, provisionDiaria, turnosHechos }: Pro
   );
 }
 
+function Select({
+  id,
+  label: lbl,
+  value,
+  onChange,
+  options,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { id: number; nombre: string }[];
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className={label} htmlFor={id}>
+        {lbl}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={field}
+      >
+        <option value="">Elegir…</option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.nombre}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function Money({
   id,
-  label,
+  label: lbl,
   value,
   onChange,
 }: {
@@ -496,11 +511,11 @@ function Money({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className={labelCls} htmlFor={id}>
-        {label}
+      <label className={label} htmlFor={id}>
+        {lbl}
       </label>
       <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle">
           $
         </span>
         <input
@@ -509,7 +524,7 @@ function Money({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="0"
-          className={inputCls + " pl-7"}
+          className={"tnum " + field + " pl-7"}
         />
       </div>
     </div>
@@ -518,7 +533,7 @@ function Money({
 
 function Chip({
   icon: Icon,
-  label,
+  label: lbl,
   onClick,
 }: {
   icon: LucideIcon;
@@ -529,10 +544,10 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-full border border-black/15 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-200 dark:hover:bg-white/10"
+      className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:border-accent hover:text-accent"
     >
       <Icon className="size-4" />
-      {label}
+      {lbl}
     </button>
   );
 }
@@ -547,25 +562,28 @@ function Resultado({
   const { arqueoCaja, arqueoMp } = result;
   return (
     <div className="flex flex-col gap-4">
-      <div className={card}>
-        <h2 className="font-medium text-emerald-700 dark:text-emerald-400">
-          Cierre de {labelTurno(turno)} registrado
-        </h2>
-        <div className="mt-3 flex flex-col gap-3">
+      <section className="rounded-2xl border border-line bg-surface p-5">
+        <div className="flex items-center gap-1.5 text-pos">
+          <span className="size-2 rounded-full bg-pos" />
+          <h2 className="font-semibold">
+            Cierre de {labelTurno(turno)} registrado
+          </h2>
+        </div>
+        <div className="mt-4 flex flex-col gap-2.5">
           <ArqueoLinea titulo="Caja chica" a={arqueoCaja} />
           {arqueoMp && <ArqueoLinea titulo="Mercado Pago" a={arqueoMp} />}
         </div>
-      </div>
+      </section>
       <div className="flex gap-2">
         <Link
           href="/"
-          className="h-11 flex-1 inline-flex items-center justify-center rounded-xl bg-zinc-900 text-center text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
+          className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-accent text-sm font-semibold text-on-accent"
         >
           Ver el día
         </Link>
         <Link
           href="/cierre"
-          className="h-11 flex-1 inline-flex items-center justify-center rounded-xl border border-black/15 text-center text-sm font-semibold dark:border-white/20"
+          className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-line text-sm font-semibold text-muted"
         >
           Cargar otro
         </Link>
@@ -583,16 +601,14 @@ function ArqueoLinea({
 }) {
   const ok = Math.abs(a.diferencia) < 0.01;
   return (
-    <div className="rounded-lg border border-black/10 p-3 text-sm dark:border-white/10">
+    <div className="rounded-xl border border-line p-3 text-sm">
       <div className="font-medium">{titulo}</div>
-      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-zinc-500">
-        <span>Teórico {fmtARS(a.teorico)}</span>
-        <span>Contado {fmtARS(a.contado)}</span>
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-subtle">
+        <span className="tnum">Teórico {fmtARS(a.teorico)}</span>
+        <span className="tnum">Contado {fmtARS(a.contado)}</span>
         <span
           className={
-            ok
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "font-semibold text-red-600 dark:text-red-400"
+            "tnum font-semibold " + (ok ? "text-pos" : "text-neg")
           }
         >
           {ok

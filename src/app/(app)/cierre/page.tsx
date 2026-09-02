@@ -13,13 +13,15 @@ export default async function CierrePage() {
   ]);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Cierre de turno</h1>
-        <p className="text-sm text-zinc-500">
-          Cargá lo vendido, los gastos y el conteo de la caja.
+    <div className="flex flex-col gap-5">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Cierre de turno
+        </h1>
+        <p className="mt-0.5 text-sm text-subtle">
+          Lo vendido, los gastos y el conteo de la caja.
         </p>
-      </div>
+      </header>
 
       <CierreForm
         hoy={hoy}

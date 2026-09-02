@@ -8,30 +8,40 @@ export default async function CierresPage() {
   const shifts = await getShiftsRecientes();
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">Cierres</h1>
+    <div className="flex flex-col gap-5">
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Cierres</h1>
         <Link
           href="/cierre"
-          className="h-10 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
+          className="inline-flex h-10 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-hover"
         >
           Cargar cierre
         </Link>
-      </div>
+      </header>
 
       {shifts.length === 0 ? (
-        <p className="text-sm text-zinc-500">Todavía no hay cierres cargados.</p>
+        <p className="rounded-xl border border-dashed border-line-strong px-4 py-8 text-center text-sm text-subtle">
+          Todavía no hay cierres cargados.
+          <br />
+          El primero se carga desde{" "}
+          <Link href="/cierre" className="font-medium text-accent">
+            Cierre de turno
+          </Link>
+          .
+        </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-black/10 dark:border-white/10">
+        <div className="overflow-hidden rounded-xl border border-line">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-900">
+            <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-subtle">
               <tr>
-                <th className="px-3 py-2 font-medium">Fecha</th>
-                <th className="px-3 py-2 font-medium">Turno</th>
-                <th className="px-3 py-2 font-medium">Atendió</th>
-                <th className="px-3 py-2 text-right font-medium">Efectivo</th>
-                <th className="px-3 py-2 text-right font-medium">Transfer.</th>
-                <th className="px-3 py-2 text-right font-medium">Total</th>
+                <th className="px-4 py-2.5 font-medium">Fecha</th>
+                <th className="px-3 py-2.5 font-medium">Turno</th>
+                <th className="hidden px-3 py-2.5 font-medium sm:table-cell">
+                  Atendió
+                </th>
+                <th className="px-3 py-2.5 text-right font-medium">Efvo.</th>
+                <th className="px-3 py-2.5 text-right font-medium">Transf.</th>
+                <th className="px-4 py-2.5 text-right font-medium">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -41,18 +51,22 @@ export default async function CierresPage() {
                 return (
                   <tr
                     key={s.id}
-                    className="border-t border-black/5 dark:border-white/5"
+                    className="border-t border-line bg-surface"
                   >
-                    <td className="whitespace-nowrap px-3 py-2 capitalize">
+                    <td className="whitespace-nowrap px-4 py-2.5 capitalize">
                       {fmtFecha(s.fecha)}
                     </td>
-                    <td className="px-3 py-2">{labelTurno(s.turno)}</td>
-                    <td className="px-3 py-2 text-zinc-500">
+                    <td className="px-3 py-2.5">{labelTurno(s.turno)}</td>
+                    <td className="hidden px-3 py-2.5 text-muted sm:table-cell">
                       {s.vendedor ?? "—"}
                     </td>
-                    <td className="px-3 py-2 text-right">{fmtARS(ef)}</td>
-                    <td className="px-3 py-2 text-right">{fmtARS(tr)}</td>
-                    <td className="px-3 py-2 text-right font-medium">
+                    <td className="tnum px-3 py-2.5 text-right text-muted">
+                      {fmtARS(ef)}
+                    </td>
+                    <td className="tnum px-3 py-2.5 text-right text-muted">
+                      {fmtARS(tr)}
+                    </td>
+                    <td className="tnum px-4 py-2.5 text-right font-semibold">
                       {fmtARS(ef + tr)}
                     </td>
                   </tr>

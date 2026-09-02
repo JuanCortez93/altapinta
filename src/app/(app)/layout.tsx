@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Lockup } from "@/components/brand";
 import { logout } from "./logout-action";
 import { NavLink } from "./nav-link";
 
@@ -9,28 +10,29 @@ export default function AppLayout({
 }) {
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-10 border-b border-black/10 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-zinc-950/90">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-1 px-3 py-2">
-          <Link href="/" className="mr-2 font-semibold tracking-tight">
-            Alta Pinta
+      <header className="sticky top-0 z-20 border-b border-line bg-canvas/85 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 py-2.5">
+          <Link href="/" aria-label="Inicio">
+            <Lockup />
           </Link>
-          <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
-            <NavLink href="/">Hoy</NavLink>
-            <NavLink href="/cierre">Cierre de turno</NavLink>
-            <NavLink href="/cierres">Cierres</NavLink>
-            <NavLink href="/cuentas">Cuentas</NavLink>
-          </nav>
+          <div className="flex-1" />
           <form action={logout}>
             <button
               type="submit"
-              className="rounded-md px-2 py-1 text-sm text-zinc-500 hover:bg-black/5 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-white"
+              className="rounded-md px-2 py-1 text-sm text-subtle transition-colors hover:bg-surface-2 hover:text-ink"
             >
               Salir
             </button>
           </form>
         </div>
+        <nav className="mx-auto -mt-0.5 flex w-full max-w-3xl items-center gap-1 overflow-x-auto px-3 pb-1.5">
+          <NavLink href="/">Hoy</NavLink>
+          <NavLink href="/cierre">Cierre de turno</NavLink>
+          <NavLink href="/cierres">Cierres</NavLink>
+          <NavLink href="/cuentas">Cuentas</NavLink>
+        </nav>
       </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-3 py-5">{children}</main>
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">{children}</main>
     </div>
   );
 }

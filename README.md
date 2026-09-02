@@ -124,9 +124,15 @@ Notas:
 ## Stack
 
 - **Next.js 16** (App Router) + React 19 + TypeScript
-- **Tailwind CSS v4**
+- **Tailwind CSS v4** con tokens de diseño en OKLCH (ver [DESIGN.md](DESIGN.md))
 - **Drizzle ORM** + **Supabase** (PostgreSQL) — driver `postgres` (postgres.js)
 - Deploy en **Vercel**
+
+### Logo
+
+El logo real va en `public/logo.png` (arrastralo ahí). Mientras no esté, la app
+dibuja un emblema con los colores de marca. Para el ícono en el teléfono,
+agregá `src/app/icon.png` (512×512).
 
 ## Puesta en marcha
 

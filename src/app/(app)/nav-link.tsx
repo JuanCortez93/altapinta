@@ -16,14 +16,18 @@ export function NavLink({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={
-        "whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm transition-colors " +
+        "relative whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors " +
         (active
-          ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-          : "text-zinc-600 hover:bg-black/5 dark:text-zinc-300 dark:hover:bg-white/10")
+          ? "text-accent"
+          : "text-muted hover:bg-surface-2 hover:text-ink")
       }
     >
       {children}
+      {active && (
+        <span className="absolute inset-x-2.5 -bottom-1.5 h-0.5 rounded-full bg-accent" />
+      )}
     </Link>
   );
 }
