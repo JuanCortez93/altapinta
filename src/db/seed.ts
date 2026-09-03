@@ -56,8 +56,7 @@ async function main() {
   const cuentas = [
     { nombre: "Tesoro", tipo: "efectivo" as const, esTesoro: true },
     { nombre: "Caja chica", tipo: "efectivo" as const, esCajaChica: true },
-    { nombre: "Mercado Pago", tipo: "digital" as const },
-    { nombre: "Provisión de sueldos", tipo: "efectivo" as const },
+    { nombre: "Reserva", tipo: "digital" as const, esReserva: true },
   ];
   for (const c of cuentas) {
     const [ya] = await db
@@ -81,12 +80,6 @@ async function main() {
       clave: "conteo_a_ciegas",
       valor: "true",
       descripcion: "Ocultar el stock teórico en los checklists hasta cargar lo contado.",
-    },
-    {
-      clave: "provision_sueldos_diaria",
-      valor: "0",
-      descripcion:
-        "Monto que se aparta por día a la cuenta Provisión de sueldos (default del formulario, editable).",
     },
   ];
   for (const p of params) {

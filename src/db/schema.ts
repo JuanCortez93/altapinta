@@ -54,6 +54,11 @@ export const salidaMotivoEnum = pgEnum("salida_motivo", [
   "cortesia",
 ]);
 
+/** Origen de un registro: cargado en la app, o importado del histórico viejo. */
+export const origenEnum = pgEnum("origen", ["app", "importado"]);
+
+// Enums legacy: ya no se usan (el cierre pasó a ser diario), pero se dejan
+// declarados para que drizzle-kit no los trate como renombrados de `origen`.
 export const turnoEnum = pgEnum("turno", ["manana", "tarde", "domingo"]);
 export const turnoEstadoEnum = pgEnum("turno_estado", ["abierto", "cerrado"]);
 
@@ -66,29 +71,25 @@ export const movimientoTipoEnum = pgEnum("movimiento_tipo", [
 export const movimientoCategoriaEnum = pgEnum("movimiento_categoria", [
   "venta_efectivo",
   "venta_transferencia",
-  "compra",
   "gasto",
-  "sueldo",
+  "compra",
   "retiro",
+  "sueldo",
   "deposito_tesoro",
   "ajuste_arqueo",
+  "ajuste_reserva",
   "fondo_inicial",
-  "provision_sueldo",
 ]);
 
 /** Subcategoría de un movimiento con categoria = "gasto". */
 export const gastoCategoriaEnum = pgEnum("gasto_categoria", [
   "envios",
-  "personal_eventual",
-  "insumos",
-  "servicios",
+  "uber",
   "otros",
 ]);
 
 export const arqueoMomentoEnum = pgEnum("arqueo_momento", [
-  "cierre_manana",
-  "cierre_tarde",
-  "cierre_domingo",
+  "cierre_dia",
   "semanal",
 ]);
 
@@ -319,17 +320,24 @@ export const productionOrders = pgTable("production_orders", {
 });
 
 /* ------------------------------------------------------------------ */
-/* Turnos y dinero                                                   */
+/* Dinero                                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Cuentas de plata. Sólo tres: Tesoro (efectivo, la caja del lugar),
+ * Caja chica (efectivo operativo del día) y Reserva (adonde van las
+ * transferencias del día).
+ */
 export const moneyAccounts = pgTable("money_accounts", {
   id: serial("id").primaryKey(),
   nombre: text("nombre").notNull(),
   tipo: cuentaTipoEnum("tipo").notNull(),
   /** Caja fuerte / efectivo global. */
   esTesoro: boolean("es_tesoro").notNull().default(false),
-  /** Efectivo operativo del día (fondo fijo). */
+  /** Efectivo operativo del día. */
   esCajaChica: boolean("es_caja_chica").notNull().default(false),
+  /** Adonde caen las transferencias del día. */
+  esReserva: boolean("es_reserva").notNull().default(false),
   saldoInicial: numeric("saldo_inicial", { precision: 14, scale: 2 })
     .notNull()
     .default("0"),
@@ -337,43 +345,57 @@ export const moneyAccounts = pgTable("money_accounts", {
 });
 
 /**
- * Parte de cierre de turno (reemplaza el Google Form actual).
- * Al cerrarlo se generan los movimientos: efectivo -> Caja chica,
- * transferencia -> Mercado Pago.
+ * Cierre del día. Un registro por fecha. Se cargan las ventas brutas
+ * (efectivo y transferencia) y el conteo de la caja; los gastos del día ya
+ * están cargados como movimientos y se enganchan a este cierre.
  */
-export const shifts = pgTable(
-  "shifts",
+export const dailyCloses = pgTable(
+  "daily_closes",
   {
     id: serial("id").primaryKey(),
     branchId: integer("branch_id")
       .notNull()
       .references(() => branches.id),
     fecha: date("fecha").notNull(),
-    turno: turnoEnum("turno").notNull(),
-    vendedorId: integer("vendedor_id").references(() => users.id),
-    totalEfectivo: numeric("total_efectivo", { precision: 14, scale: 2 })
+    /** Venta bruta del día, antes de gastos. */
+    ventaEfectivo: numeric("venta_efectivo", { precision: 14, scale: 2 })
       .notNull()
       .default("0"),
-    totalTransferencia: numeric("total_transferencia", {
+    ventaTransferencia: numeric("venta_transferencia", {
       precision: 14,
       scale: 2,
     })
       .notNull()
       .default("0"),
+    /** Arqueo: efectivo físico contado en Caja chica al cierre. */
+    efectivoContado: numeric("efectivo_contado", { precision: 14, scale: 2 }),
+    /** Diferencia contado − teórico (guardada al cerrar). */
+    diferenciaEfectivo: numeric("diferencia_efectivo", {
+      precision: 14,
+      scale: 2,
+    }),
+    /** Efectivo que pasa de Caja chica al Tesoro. */
+    efectivoATesoro: numeric("efectivo_a_tesoro", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    /** Saldo declarado de la Reserva (homebanking / app), opcional. */
+    saldoReservaApp: numeric("saldo_reserva_app", { precision: 14, scale: 2 }),
     observaciones: text("observaciones"),
-    estado: turnoEstadoEnum("estado").notNull().default("abierto"),
     cerradoPor: integer("cerrado_por").references(() => users.id),
     cerradoEn: timestamp("cerrado_en", { withTimezone: true }),
+    origen: origenEnum("origen").notNull().default("app"),
     creadoEn: timestamp("creado_en", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("shifts_branch_fecha_turno").on(t.branchId, t.fecha, t.turno)],
+  (t) => [uniqueIndex("daily_closes_branch_fecha").on(t.branchId, t.fecha)],
 );
 
 /**
- * Todo movimiento de plata. El saldo teórico de una cuenta se calcula como
+ * Todo movimiento de plata. El saldo de una cuenta se calcula como
  * saldo_inicial + Σ ingresos − Σ egresos ± transferencias.
+ * Los gastos se cargan durante el día con cierre_id nulo; al cerrar el día
+ * se les asigna el cierre.
  */
 export const moneyMovements = pgTable("money_movements", {
   id: serial("id").primaryKey(),
@@ -393,10 +415,11 @@ export const moneyMovements = pgTable("money_movements", {
     () => moneyAccounts.id,
   ),
   monto: numeric("monto", { precision: 14, scale: 2 }).notNull(),
-  shiftId: integer("shift_id").references(() => shifts.id),
+  cierreId: integer("cierre_id").references(() => dailyCloses.id),
   purchaseId: integer("purchase_id").references(() => purchases.id),
   descripcion: text("descripcion"),
   usuarioId: integer("usuario_id").references(() => users.id),
+  origen: origenEnum("origen").notNull().default("app"),
   creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -411,7 +434,7 @@ export const cashCounts = pgTable("cash_counts", {
     .references(() => moneyAccounts.id),
   fecha: date("fecha").notNull(),
   momento: arqueoMomentoEnum("momento").notNull(),
-  shiftId: integer("shift_id").references(() => shifts.id),
+  cierreId: integer("cierre_id").references(() => dailyCloses.id),
   saldoTeorico: numeric("saldo_teorico", { precision: 14, scale: 2 }).notNull(),
   saldoContado: numeric("saldo_contado", { precision: 14, scale: 2 }).notNull(),
   diferencia: numeric("diferencia", { precision: 14, scale: 2 }).notNull(),

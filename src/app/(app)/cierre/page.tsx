@@ -1,34 +1,53 @@
-import { getUsers, getSetting, getShiftsDelDia } from "@/lib/queries";
-import { todayAR } from "@/lib/format";
+import Link from "next/link";
+import { getUsers, getCierreDelDia, getGastosDelDia } from "@/lib/queries";
+import { todayAR, fmtFecha } from "@/lib/format";
 import { CierreForm } from "./cierre-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function CierrePage() {
   const hoy = todayAR();
-  const [usuarios, provisionDiaria, shiftsHoy] = await Promise.all([
+  const [usuarios, cierre, gastos] = await Promise.all([
     getUsers(),
-    getSetting("provision_sueldos_diaria"),
-    getShiftsDelDia(hoy),
+    getCierreDelDia(hoy),
+    getGastosDelDia(hoy),
   ]);
 
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Cierre de turno
-        </h1>
-        <p className="mt-0.5 text-sm text-subtle">
-          Lo vendido, los gastos y el conteo de la caja.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Cierre del día</h1>
+        <p className="mt-0.5 text-sm capitalize text-subtle">{fmtFecha(hoy)}</p>
       </header>
 
-      <CierreForm
-        hoy={hoy}
-        usuarios={usuarios.map((u) => ({ id: u.id, nombre: u.nombre }))}
-        provisionDiaria={Number(provisionDiaria ?? 0)}
-        turnosHechos={shiftsHoy.map((s) => s.turno)}
-      />
+      {cierre ? (
+        <div className="rounded-2xl border border-line bg-surface p-5 text-sm">
+          <p className="font-medium text-pos">El día ya está cerrado.</p>
+          <p className="mt-1 text-subtle">
+            Si algo quedó mal, corregilo en el detalle del cierre.
+          </p>
+          <Link
+            href="/"
+            className="mt-3 inline-flex h-10 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent"
+          >
+            Ver el día
+          </Link>
+        </div>
+      ) : (
+        <CierreForm
+          hoy={hoy}
+          usuarios={usuarios.map((u) => ({ id: u.id, nombre: u.nombre }))}
+          gastos={gastos.map((g) => ({
+            id: g.id,
+            categoria: g.categoria,
+            gastoCategoria: g.gastoCategoria,
+            monto: g.monto,
+            descripcion: g.descripcion,
+            cuenta: g.cuenta,
+            cierreId: g.cierreId,
+          }))}
+        />
+      )}
     </div>
   );
 }

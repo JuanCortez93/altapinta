@@ -15,6 +15,13 @@
       "when": 1788379788090,
       "tag": "0001_overjoyed_slipstream",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788462320508,
+      "tag": "0002_daily_close",
+      "breakpoints": true
     }
   ]
 }

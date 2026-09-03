@@ -1,21 +1,24 @@
 import { getCuentasConSaldo, getMovimientosRecientes } from "@/lib/queries";
 import { fmtARS, fmtFecha } from "@/lib/format";
-import { catDef } from "@/lib/gastos";
+import { etiquetaSalida } from "@/lib/gastos";
 
 export const dynamic = "force-dynamic";
 
 const CAT_LABEL: Record<string, string> = {
   venta_efectivo: "Venta en efectivo",
   venta_transferencia: "Venta por transferencia",
-  compra: "Compra",
-  gasto: "Gasto",
-  sueldo: "Sueldo",
-  retiro: "Retiro",
   deposito_tesoro: "Depósito al Tesoro",
   ajuste_arqueo: "Ajuste de arqueo",
+  ajuste_reserva: "Ajuste de Reserva",
   fondo_inicial: "Fondo inicial",
-  provision_sueldo: "Provisión de sueldos",
+  sueldo: "Sueldo",
 };
+
+function etiqueta(categoria: string, gastoCategoria: string | null): string {
+  if (["gasto", "compra", "retiro"].includes(categoria))
+    return etiquetaSalida(categoria, gastoCategoria);
+  return CAT_LABEL[categoria] ?? categoria;
+}
 
 export default async function CuentasPage() {
   const [cuentas, movs] = await Promise.all([
@@ -27,7 +30,7 @@ export default async function CuentasPage() {
     <div className="flex flex-col gap-5">
       <h1 className="text-2xl font-semibold tracking-tight">Cuentas</h1>
 
-      <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <section className="grid grid-cols-3 gap-2">
         {cuentas.map((c) => (
           <div
             key={c.id}
@@ -53,10 +56,7 @@ export default async function CuentasPage() {
               const monto = Number(m.monto);
               const signo =
                 m.tipo === "ingreso" ? "+" : m.tipo === "egreso" ? "−" : "→";
-              const etiqueta =
-                m.categoria === "gasto" && m.gastoCategoria
-                  ? catDef(m.gastoCategoria)?.label ?? "Gasto"
-                  : CAT_LABEL[m.categoria] ?? m.categoria;
+              const et = etiqueta(m.categoria, m.gastoCategoria);
               return (
                 <li
                   key={m.id}
@@ -64,11 +64,11 @@ export default async function CuentasPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-ink">
-                      {m.descripcion || etiqueta}
+                      {m.descripcion || et}
                     </div>
                     <div className="truncate text-xs text-subtle">
                       <span className="capitalize">{fmtFecha(m.fecha)}</span> ·{" "}
-                      {etiqueta} · {m.cuenta}
+                      {et} · {m.cuenta}
                     </div>
                   </div>
                   <div

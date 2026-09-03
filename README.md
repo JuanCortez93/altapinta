@@ -92,20 +92,24 @@ Definido en [`src/db/schema.ts`](src/db/schema.ts) (Drizzle + PostgreSQL).
 | Catálogo | `product_categories`, `products`, `price_history` |
 | Compras y stock | `suppliers`, `purchases`, `purchase_items`, `stock_lots`, `stock_exits` |
 | Producción | `recipes`, `recipe_items`, `production_orders` |
-| Turnos y dinero | `money_accounts`, `shifts`, `money_movements`, `cash_counts` |
+| Dinero | `money_accounts`, `daily_closes`, `money_movements`, `cash_counts` |
 | Conteos de stock | `stock_counts`, `stock_count_items` |
 | Promociones | `promotions`, `promotion_items` |
 
 Notas:
 
-- **`stock_lots`** es el corazón del stock: cada ingreso (compra / producción /
-  ajuste) crea un lote con `fecha_ingreso`, `costo_unitario` y `cantidad_restante`.
-  Las salidas consumen el lote más antiguo primero.
+- **Cuentas:** sólo tres — **Tesoro** (efectivo, la caja del lugar), **Caja chica**
+  (efectivo operativo del día) y **Reserva** (adonde van las transferencias del día).
+- **`daily_closes`**: un registro por fecha. Se cargan las ventas brutas (efectivo
+  y transferencia) y el arqueo de la caja. Los gastos se cargan durante el día
+  como `money_movements` y al cerrar se les asigna el `cierre_id`.
+- Salidas del día: `envios` / `uber` / `otros` → `money_movements` categoría
+  `gasto`; `proveedor` → `compra`; `retiro` → `retiro`. No hay provisión de
+  sueldos como cuenta aparte.
+- **`stock_lots`** es el corazón del stock: cada ingreso crea un lote con
+  `fecha_ingreso` y `costo_unitario`; las salidas consumen el más viejo primero.
 - **No hay salida de stock por venta.** El vendido se infiere en la conciliación.
-- Campos calculados (total de turno, saldos teóricos, diferencias, valorizaciones)
-  no se guardan: se derivan en queries y reportes.
-- **`shifts`** reemplaza el Google Form de "Cierre de turno". Al cerrar un parte
-  se generan los `money_movements` de venta.
+- Campos calculados (saldos teóricos, valorizaciones) no se guardan: se derivan.
 
 ---
 
@@ -114,7 +118,7 @@ Notas:
 | Fase | Alcance |
 |---|---|
 | **0 — Base** ✅ | Scaffold Next.js + Drizzle + Supabase, esquema completo, seed. |
-| **1 — MVP plata** 🚧 | Login con contraseña compartida · **Cierre de turno** (ventas, gastos dinámicos con categorías, arqueo de Caja chica a ciegas, cierre del día con barrido al Tesoro y arqueo de Mercado Pago) · **Hoy** (dashboard del día) · **Cierres** (historial) · **Cuentas** (saldos + movimientos). |
+| **1 — MVP plata** 🚧 | Login con contraseña compartida · **Cargar gasto** (en cualquier momento, categorías con íconos: Envíos, Uber, Proveedor, Retiro, Otros) · **Cierre del día** (ventas brutas efectivo/transferencia, gastos del día enganchados, arqueo de Caja chica, barrido al Tesoro, arqueo de Reserva) · **Hoy** (dashboard) · **Cierres** (historial) · **Métricas** (venta por día, promedio por día de semana, gasto por categoría) · **Cuentas** (saldos + movimientos). |
 | **2 — Stock** | Compras por lote (kg + fecha + precio), salidas registradas, checklist diario a ciegas, inventario completo por zona, reporte de antigüedad. |
 | **3 — Conciliación + producción** | Conciliación venta vs stock, recetas y órdenes de producción, margen por producto. |
 | **4 — Promos + 2ª sucursal** | Promociones + panel de candidatos, alta de la segunda sucursal. |
@@ -164,3 +168,9 @@ Comandos de base de datos:
 | `npm run db:push` | Empuja el esquema directo a la DB (útil en desarrollo temprano). |
 | `npm run db:studio` | Abre Drizzle Studio para ver / editar datos. |
 | `npm run db:seed` | Carga los datos iniciales (idempotente). |
+
+> `drizzle/0002_daily_close.sql` está escrita a mano (drizzle-kit `generate`
+> necesita una terminal interactiva para resolver el renombre `shifts` →
+> `daily_closes`). `drizzle/meta/0002_snapshot.json` es un placeholder; antes del
+> próximo `db:generate` hay que regenerar el snapshot corriendo `drizzle-kit`
+> en una terminal real.

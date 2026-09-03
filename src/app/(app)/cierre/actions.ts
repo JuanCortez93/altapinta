@@ -1,32 +1,105 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { cashCounts, moneyAccounts, moneyMovements, shifts } from "@/db/schema";
+import { cashCounts, dailyCloses, moneyAccounts, moneyMovements } from "@/db/schema";
 import { assertAuthed } from "@/lib/session";
-import { shiftYaExiste, getBranch } from "@/lib/queries";
-import type { SalidaCategoria } from "@/lib/gastos";
+import { cierreYaExiste, getBranch } from "@/lib/queries";
+import { movimientoDe, type SalidaCategoria } from "@/lib/gastos";
 
-export interface GastoInput {
+const money = (n: number) => n.toFixed(2);
+
+async function cuentas() {
+  const rows = await db.select().from(moneyAccounts);
+  return {
+    cajaChica: rows.find((c) => c.esCajaChica),
+    tesoro: rows.find((c) => c.esTesoro),
+    reserva: rows.find((c) => c.esReserva) ?? rows.find((c) => c.tipo === "digital"),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Gastos — se cargan en cualquier momento del día                    */
+/* ------------------------------------------------------------------ */
+
+export interface GastoPayload {
   categoria: SalidaCategoria;
   detalle: string;
   monto: number;
-  cuenta: "caja_chica" | "mercado_pago";
+  cuenta: "caja_chica" | "tesoro";
 }
+
+export type GastoResult = { ok: true; id: number } | { ok: false; error: string };
+
+export async function agregarGasto(p: GastoPayload): Promise<GastoResult> {
+  await assertAuthed();
+
+  if (!Number.isFinite(p.monto) || p.monto <= 0)
+    return { ok: false, error: "El monto tiene que ser mayor a cero." };
+  if (p.categoria === "otros" && !p.detalle.trim())
+    return { ok: false, error: "En «Otros» la descripción es obligatoria." };
+
+  const branch = await getBranch();
+  if (!branch) return { ok: false, error: "No hay sucursal cargada." };
+
+  const { cajaChica, tesoro } = await cuentas();
+  const cuentaId = p.cuenta === "tesoro" ? tesoro?.id : cajaChica?.id;
+  if (!cuentaId) return { ok: false, error: "Falta la cuenta. Corré el seed." };
+
+  const { categoria, gastoCategoria } = movimientoDe(p.categoria);
+
+  const [row] = await db
+    .insert(moneyMovements)
+    .values({
+      branchId: branch.id,
+      fecha: hoyISO(),
+      tipo: "egreso",
+      categoria,
+      gastoCategoria,
+      cuentaId,
+      monto: money(p.monto),
+      descripcion: p.detalle.trim() || null,
+    })
+    .returning({ id: moneyMovements.id });
+
+  revalidatePath("/");
+  revalidatePath("/gasto");
+  revalidatePath("/cierre");
+  revalidatePath("/cuentas");
+  return { ok: true, id: row.id };
+}
+
+export async function borrarGasto(id: number): Promise<GastoResult> {
+  await assertAuthed();
+  const [mov] = await db
+    .select()
+    .from(moneyMovements)
+    .where(eq(moneyMovements.id, id));
+  if (!mov) return { ok: false, error: "No existe." };
+  if (mov.cierreId)
+    return { ok: false, error: "Ese gasto ya quedó en un cierre; no se puede borrar." };
+
+  await db.delete(moneyMovements).where(eq(moneyMovements.id, id));
+  revalidatePath("/");
+  revalidatePath("/gasto");
+  revalidatePath("/cierre");
+  revalidatePath("/cuentas");
+  return { ok: true, id };
+}
+
+/* ------------------------------------------------------------------ */
+/* Cierre del día                                                     */
+/* ------------------------------------------------------------------ */
 
 export interface CierrePayload {
   fecha: string;
-  turno: "manana" | "tarde" | "domingo";
-  adminId: number;
-  vendedorId: number;
+  cerradoPorId: number;
   ventaEfectivo: number;
   ventaTransferencia: number;
-  gastos: GastoInput[];
   efectivoContado: number;
-  notaArqueo: string;
-  esCierreDia: boolean;
   efectivoATesoro: number;
-  saldoMpApp: number | null;
+  saldoReservaApp: number | null;
   observaciones: string;
 }
 
@@ -37,139 +110,91 @@ interface Arqueo {
 }
 
 export type CierreResult =
-  | { ok: true; shiftId: number; arqueoCaja: Arqueo; arqueoMp: Arqueo | null }
+  | { ok: true; cierreId: number; arqueoCaja: Arqueo; arqueoReserva: Arqueo | null }
   | { ok: false; error: string };
 
-const MOMENTO = {
-  manana: "cierre_manana",
-  tarde: "cierre_tarde",
-  domingo: "cierre_domingo",
-} as const;
-
-const money = (n: number) => n.toFixed(2);
-
-export async function registrarCierre(
+export async function registrarCierreDia(
   p: CierrePayload,
 ): Promise<CierreResult> {
   await assertAuthed();
 
-  // ---- validación -------------------------------------------------
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(p.fecha)) return err("Fecha inválida.");
-  if (!MOMENTO[p.turno]) return err("Turno inválido.");
-  if (!p.adminId) return err("Elegí quién cierra el turno.");
-  if (!p.vendedorId) return err("Elegí quién atendió el turno.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(p.fecha))
+    return { ok: false, error: "Fecha inválida." };
+  if (!p.cerradoPorId) return { ok: false, error: "Elegí quién cierra el día." };
   for (const v of [p.ventaEfectivo, p.ventaTransferencia, p.efectivoContado]) {
-    if (!Number.isFinite(v) || v < 0) return err("Hay montos inválidos.");
+    if (!Number.isFinite(v) || v < 0)
+      return { ok: false, error: "Hay montos inválidos." };
   }
-  for (const g of p.gastos) {
-    if (!Number.isFinite(g.monto) || g.monto <= 0)
-      return err(`El gasto "${g.detalle || g.categoria}" no tiene un monto válido.`);
-  }
-  if (p.esCierreDia && (!Number.isFinite(p.efectivoATesoro) || p.efectivoATesoro < 0))
-    return err("El monto a pasar al Tesoro es inválido.");
+  if (!Number.isFinite(p.efectivoATesoro) || p.efectivoATesoro < 0)
+    return { ok: false, error: "El monto a pasar al Tesoro es inválido." };
 
   const branch = await getBranch();
-  if (!branch) return err("No hay sucursal cargada. Corré el seed.");
+  if (!branch) return { ok: false, error: "No hay sucursal cargada." };
+  if (await cierreYaExiste(branch.id, p.fecha))
+    return { ok: false, error: "Ya hay un cierre cargado para esa fecha." };
 
-  if (await shiftYaExiste(branch.id, p.fecha, p.turno))
-    return err("Ya hay un cierre cargado para ese turno y esa fecha.");
-
-  // ---- cuentas base ---------------------------------------------------
-  const cuentas = await db.select().from(moneyAccounts);
-  const cajaChica = cuentas.find((c) => c.esCajaChica);
-  const tesoro = cuentas.find((c) => c.esTesoro);
-  const mp =
-    cuentas.find((c) => c.nombre === "Mercado Pago") ??
-    cuentas.find((c) => c.tipo === "digital");
-  const provision = cuentas.find((c) => c.nombre === "Provisión de sueldos");
-
-  if (!cajaChica || !mp)
-    return err("Faltan cuentas base (Caja chica / Mercado Pago). Corré el seed.");
-  if (p.gastos.some((g) => g.categoria === "provision_sueldo") && !provision)
-    return err("Falta la cuenta Provisión de sueldos. Corré el seed.");
+  const { cajaChica, tesoro, reserva } = await cuentas();
+  if (!cajaChica || !reserva)
+    return { ok: false, error: "Faltan cuentas base. Corré el seed." };
 
   try {
     const result = await db.transaction(async (tx) => {
-      const [shift] = await tx
-        .insert(shifts)
+      const [cierre] = await tx
+        .insert(dailyCloses)
         .values({
           branchId: branch.id,
           fecha: p.fecha,
-          turno: p.turno,
-          vendedorId: p.vendedorId,
-          totalEfectivo: money(p.ventaEfectivo),
-          totalTransferencia: money(p.ventaTransferencia),
+          ventaEfectivo: money(p.ventaEfectivo),
+          ventaTransferencia: money(p.ventaTransferencia),
+          efectivoContado: money(p.efectivoContado),
+          efectivoATesoro: money(p.efectivoATesoro),
+          saldoReservaApp:
+            p.saldoReservaApp != null ? money(p.saldoReservaApp) : null,
           observaciones: p.observaciones || null,
-          estado: "cerrado",
-          cerradoPor: p.adminId,
+          cerradoPor: p.cerradoPorId,
           cerradoEn: new Date(),
         })
         .returning();
 
-      const movs: (typeof moneyMovements.$inferInsert)[] = [];
-
-      if (p.ventaEfectivo > 0) {
-        movs.push({
+      const nuevos: (typeof moneyMovements.$inferInsert)[] = [];
+      if (p.ventaEfectivo > 0)
+        nuevos.push({
           branchId: branch.id,
           fecha: p.fecha,
           tipo: "ingreso",
           categoria: "venta_efectivo",
           cuentaId: cajaChica.id,
           monto: money(p.ventaEfectivo),
-          shiftId: shift.id,
+          cierreId: cierre.id,
           descripcion: "Ventas en efectivo",
-          usuarioId: p.adminId,
+          usuarioId: p.cerradoPorId,
         });
-      }
-      if (p.ventaTransferencia > 0) {
-        movs.push({
+      if (p.ventaTransferencia > 0)
+        nuevos.push({
           branchId: branch.id,
           fecha: p.fecha,
           tipo: "ingreso",
           categoria: "venta_transferencia",
-          cuentaId: mp.id,
+          cuentaId: reserva.id,
           monto: money(p.ventaTransferencia),
-          shiftId: shift.id,
+          cierreId: cierre.id,
           descripcion: "Ventas por transferencia",
-          usuarioId: p.adminId,
+          usuarioId: p.cerradoPorId,
         });
-      }
+      if (nuevos.length) await tx.insert(moneyMovements).values(nuevos);
 
-      for (const g of p.gastos) {
-        if (g.categoria === "provision_sueldo") {
-          movs.push({
-            branchId: branch.id,
-            fecha: p.fecha,
-            tipo: "transferencia",
-            categoria: "provision_sueldo",
-            cuentaId: cajaChica.id,
-            cuentaDestinoId: provision!.id,
-            monto: money(g.monto),
-            shiftId: shift.id,
-            descripcion: g.detalle || "Provisión de sueldos",
-            usuarioId: p.adminId,
-          });
-        } else {
-          const cuentaId =
-            g.cuenta === "mercado_pago" ? mp.id : cajaChica.id;
-          movs.push({
-            branchId: branch.id,
-            fecha: p.fecha,
-            tipo: "egreso",
-            categoria: "gasto",
-            gastoCategoria: g.categoria,
-            cuentaId,
-            monto: money(g.monto),
-            shiftId: shift.id,
-            descripcion: g.detalle || null,
-            usuarioId: p.adminId,
-          });
-        }
-      }
+      // Enganchar los gastos del día que estaban sueltos.
+      await tx
+        .update(moneyMovements)
+        .set({ cierreId: cierre.id })
+        .where(
+          and(
+            eq(moneyMovements.fecha, p.fecha),
+            isNull(moneyMovements.cierreId),
+            inArray(moneyMovements.categoria, ["gasto", "compra", "retiro"]),
+          ),
+        );
 
-      if (movs.length) await tx.insert(moneyMovements).values(movs);
-
-      // saldos teóricos tras ventas y gastos (antes del barrido al Tesoro)
       const todos = await tx.select().from(moneyMovements);
       const saldoDe = (accId: number, inicial: string) => {
         let s = Number(inicial);
@@ -189,73 +214,75 @@ export async function registrarCierre(
         diferencia: p.efectivoContado - cajaTeorico,
       };
 
+      await tx
+        .update(dailyCloses)
+        .set({ diferenciaEfectivo: money(arqueoCaja.diferencia) })
+        .where(eq(dailyCloses.id, cierre.id));
+
       await tx.insert(cashCounts).values({
         branchId: branch.id,
         accountId: cajaChica.id,
         fecha: p.fecha,
-        momento: MOMENTO[p.turno],
-        shiftId: shift.id,
+        momento: "cierre_dia",
+        cierreId: cierre.id,
         saldoTeorico: money(arqueoCaja.teorico),
         saldoContado: money(arqueoCaja.contado),
         diferencia: money(arqueoCaja.diferencia),
-        nota: p.notaArqueo || null,
-        usuarioId: p.adminId,
+        usuarioId: p.cerradoPorId,
       });
 
-      let arqueoMp: Arqueo | null = null;
-
-      if (p.esCierreDia) {
-        if (tesoro && p.efectivoATesoro > 0) {
-          await tx.insert(moneyMovements).values({
-            branchId: branch.id,
-            fecha: p.fecha,
-            tipo: "transferencia",
-            categoria: "deposito_tesoro",
-            cuentaId: cajaChica.id,
-            cuentaDestinoId: tesoro.id,
-            monto: money(p.efectivoATesoro),
-            shiftId: shift.id,
-            descripcion: "Barrido de Caja chica al Tesoro",
-            usuarioId: p.adminId,
-          });
-        }
-
-        if (p.saldoMpApp != null && Number.isFinite(p.saldoMpApp)) {
-          const mpTeorico = saldoDe(mp.id, mp.saldoInicial);
-          arqueoMp = {
-            teorico: mpTeorico,
-            contado: p.saldoMpApp,
-            diferencia: p.saldoMpApp - mpTeorico,
-          };
-          await tx.insert(cashCounts).values({
-            branchId: branch.id,
-            accountId: mp.id,
-            fecha: p.fecha,
-            momento: MOMENTO[p.turno],
-            shiftId: shift.id,
-            saldoTeorico: money(arqueoMp.teorico),
-            saldoContado: money(arqueoMp.contado),
-            diferencia: money(arqueoMp.diferencia),
-            nota: "Saldo declarado de la app de Mercado Pago",
-            usuarioId: p.adminId,
-          });
-        }
+      if (tesoro && p.efectivoATesoro > 0) {
+        await tx.insert(moneyMovements).values({
+          branchId: branch.id,
+          fecha: p.fecha,
+          tipo: "transferencia",
+          categoria: "deposito_tesoro",
+          cuentaId: cajaChica.id,
+          cuentaDestinoId: tesoro.id,
+          monto: money(p.efectivoATesoro),
+          cierreId: cierre.id,
+          descripcion: "Barrido de Caja chica al Tesoro",
+          usuarioId: p.cerradoPorId,
+        });
       }
 
-      return { shiftId: shift.id, arqueoCaja, arqueoMp };
+      let arqueoReserva: Arqueo | null = null;
+      if (p.saldoReservaApp != null && Number.isFinite(p.saldoReservaApp)) {
+        const rTeorico = saldoDe(reserva.id, reserva.saldoInicial);
+        arqueoReserva = {
+          teorico: rTeorico,
+          contado: p.saldoReservaApp,
+          diferencia: p.saldoReservaApp - rTeorico,
+        };
+        await tx.insert(cashCounts).values({
+          branchId: branch.id,
+          accountId: reserva.id,
+          fecha: p.fecha,
+          momento: "cierre_dia",
+          cierreId: cierre.id,
+          saldoTeorico: money(arqueoReserva.teorico),
+          saldoContado: money(arqueoReserva.contado),
+          diferencia: money(arqueoReserva.diferencia),
+          nota: "Saldo declarado de la Reserva",
+          usuarioId: p.cerradoPorId,
+        });
+      }
+
+      return { cierreId: cierre.id, arqueoCaja, arqueoReserva };
     });
 
-    revalidatePath("/");
-    revalidatePath("/cierres");
-    revalidatePath("/cuentas");
+    for (const p2 of ["/", "/cierres", "/cuentas", "/metricas", "/cierre"])
+      revalidatePath(p2);
 
     return { ok: true, ...result };
   } catch (e) {
-    console.error("registrarCierre", e);
-    return err("No se pudo guardar el cierre. Probá de nuevo.");
+    console.error("registrarCierreDia", e);
+    return { ok: false, error: "No se pudo guardar el cierre. Probá de nuevo." };
   }
 }
 
-function err(error: string): CierreResult {
-  return { ok: false, error };
+function hoyISO(): string {
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
 }

@@ -27,8 +27,10 @@ export default function AppLayout({
         </div>
         <nav className="mx-auto -mt-0.5 flex w-full max-w-3xl items-center gap-1 overflow-x-auto px-3 pb-1.5">
           <NavLink href="/">Hoy</NavLink>
-          <NavLink href="/cierre">Cierre de turno</NavLink>
+          <NavLink href="/gasto">Gasto</NavLink>
+          <NavLink href="/cierre">Cierre</NavLink>
           <NavLink href="/cierres">Cierres</NavLink>
+          <NavLink href="/metricas">Métricas</NavLink>
           <NavLink href="/cuentas">Cuentas</NavLink>
         </nav>
       </header>

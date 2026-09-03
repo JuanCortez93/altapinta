@@ -26,13 +26,3 @@ export function fmtFecha(iso: string): string {
     month: "short",
   });
 }
-
-export const TURNOS = [
-  { value: "manana", label: "Mañana" },
-  { value: "tarde", label: "Tarde" },
-  { value: "domingo", label: "Domingo" },
-] as const;
-
-export function labelTurno(v: string): string {
-  return TURNOS.find((t) => t.value === v)?.label ?? v;
-}
