@@ -2,14 +2,16 @@
 
 Sistema de **control y conciliación** para la pollería Alta Pinta.
 
-> No es un punto de venta. Nadie carga ventas ítem por ítem. Cada turno declara
-> el **total vendido** (efectivo y transferencia) y el sistema verifica dos cosas
-> al cierre:
+> No es un punto de venta. Durante el día se cargan **movimientos sueltos**
+> (ventas y gastos, cada uno marcado como efectivo o transferencia) y al
+> cerrar el día el sistema muestra cuánto debería haber en la caja. El
+> sistema verifica dos cosas:
 >
-> 1. **Dinero** — la plata que hay (Caja chica + Mercado Pago + Tesoro) coincide
->    con lo declarado menos lo gastado.
+> 1. **Dinero** — la plata que hay (Caja chica + Reserva + Tesoro) coincide
+>    con lo declarado menos lo gastado. El cierre nunca se bloquea por una
+>    diferencia; solo la deja registrada.
 > 2. **Venta vs stock** — lo declarado como venta se condice con la mercadería
->    que efectivamente salió del stock (medido por conteo físico).
+>    que efectivamente salió del stock (medido por conteo físico). *(Fase 2.)*
 
 Vende pollo, pescado, rebozados de pollo y pescado, y milanesas de soja. Produce
 hamburguesas y albóndigas de pollo.
@@ -24,11 +26,11 @@ hamburguesas y albóndigas de pollo.
 | Sucursales | 1 hoy (**Alta Pinta**). El modelo ya es multisucursal para el futuro. |
 | Balanza | Sin integración. El peso se carga a mano. |
 | Stock | Global por producto, pero con **lotes fechados** (fecha de ingreso + costo real) para rotar lo más viejo primero (FEFO). |
-| Cierre | **Uno por día** (no por turno). Ventas brutas + gastos del día + arqueo. |
+| Cierre | **Uno por día** (no por turno). Se arma con los movimientos sueltos del día + arqueo. |
 | Personas | Lista fija. Seed: Esequiel y Stella (encargado), Graciela (vendedor). |
 | Cuentas de dinero | **Tesoro** (efectivo, la caja del lugar), **Caja chica** (efectivo operativo), **Reserva** (adonde van las transferencias del día; se mueve según rinde el banco). Sin cuenta de provisión de sueldos. |
-| Gastos | Se cargan en **cualquier momento** del día (Envíos, Uber, Proveedor, Retiro, Otros) y quedan enganchados al cierre. "Otros" exige descripción. |
-| Arqueo Caja chica | Uno por día, con conteo físico y diferencia. |
+| Movimientos | **Ventas y gastos se cargan como ítems sueltos**, en cualquier momento del día (no sólo al cerrar). Cada ítem es efectivo o transferencia (ícono `Banknote` / `ArrowRightLeft`); efectivo pega en Caja chica, transferencia en Reserva. Editables y borrables hasta que se cierra el día. Gastos: Envíos, Uber, Proveedor, Retiro, Otros ("Otros" exige descripción). |
+| Arqueo Caja chica | **Opcional y no bloqueante.** Al cerrar se muestra cuánto debería haber; contar la caja es opcional y el cierre se confirma coincida o no. |
 | Puesta en marcha | **Tabula rasa**: no se importa histórico. El día que arranca el uso real se carga el saldo que hay en ese momento en cada cuenta (`/inicio`, movimiento `fondo_inicial`) y de ahí en más todo sale de la app. |
 | Conteo de stock | Set clave **diario** + inventario **completo** periódico. Conteo **a ciegas** por defecto (no se ve el teórico hasta cargar). *(Fase 2, no construido aún.)* |
 | Costeo | Por lote, al costo real de cada compra. Consumo del lote más antiguo primero. *(Fase 2.)* |
@@ -41,14 +43,13 @@ hamburguesas y albóndigas de pollo.
 ### Día normal
 
 ```
-Durante el día  se cargan gastos apenas ocurren (Envíos, Uber, Proveedor,
-                Retiro, Otros) → egreso de Caja chica o Tesoro
-Cierre del día  dinero en cash + dinero en transferencias (venta bruta)
-                → + efectivo a Caja chica, + transferencia a Reserva
-                gastos del día ya cargados se enganchan al cierre
-                arqueo de Caja chica (a ciegas) → diferencia
+Durante el día  se cargan ventas y gastos apenas ocurren, cada uno marcado
+                efectivo o transferencia → ingreso/egreso de Caja chica o Reserva
+Cierre del día  "Listo": se muestra cuánto debería haber en Caja chica
+                (opcional) contar la caja real → diferencia, sin bloquear
                 barrido Caja chica → Tesoro
                 arqueo de Reserva (opcional, contra el saldo real)
+                se enganchan al cierre todos los movimientos sueltos del día
 Semanal         arqueo Tesoro + inventario completo (Fase 2)
 ```
 
@@ -114,7 +115,7 @@ Notas:
 | Fase | Alcance |
 |---|---|
 | **0 — Base** ✅ | Scaffold Next.js + Drizzle + Supabase, esquema completo, seed. |
-| **1 — MVP plata** 🚧 | Login con contraseña compartida · **Cargar gasto** (en cualquier momento, categorías con íconos: Envíos, Uber, Proveedor, Retiro, Otros) · **Cierre del día** (ventas brutas efectivo/transferencia, gastos del día enganchados, arqueo de Caja chica, barrido al Tesoro, arqueo de Reserva) · **Hoy** (dashboard) · **Cierres** (historial) · **Métricas** (venta por día, promedio por día de semana, gasto por categoría) · **Cuentas** (saldos + movimientos). |
+| **1 — MVP plata** 🚧 | Login con contraseña compartida · **Movimiento** (cargar venta o gasto en cualquier momento, efectivo/transferencia, editable/borrable) · **Cierre del día** ("Listo" → debería haber $X → arqueo opcional → confirmar) · **Inicio** (saldo inicial de las cuentas, una vez) · **Hoy** (dashboard) · **Cierres** (historial) · **Métricas** (venta por día, promedio por día de semana, gasto por categoría) · **Cuentas** (saldos + movimientos). |
 | **2 — Stock** | Compras por lote (kg + fecha + precio), salidas registradas, checklist diario a ciegas, inventario completo por zona, reporte de antigüedad. |
 | **3 — Conciliación + producción** | Conciliación venta vs stock, recetas y órdenes de producción, margen por producto. |
 | **4 — Promos + 2ª sucursal** | Promociones + panel de candidatos, alta de la segunda sucursal. |

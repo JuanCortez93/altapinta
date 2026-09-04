@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   branches,
@@ -84,8 +84,15 @@ export async function cierreYaExiste(branchId: number, fecha: string) {
 }
 
 const CATS_SALIDA = ["gasto", "compra", "retiro"] as const;
+const CATS_MOVIMIENTO = [
+  "venta_efectivo",
+  "venta_transferencia",
+  "gasto",
+  "compra",
+  "retiro",
+] as const;
 
-/** Gastos / compras / retiros cargados para una fecha. */
+/** Gastos / compras / retiros cargados para una fecha (para el dashboard). */
 export async function getGastosDelDia(fecha: string) {
   return db
     .select({
@@ -104,6 +111,34 @@ export async function getGastosDelDia(fecha: string) {
       and(
         eq(moneyMovements.fecha, fecha),
         inArray(moneyMovements.categoria, [...CATS_SALIDA]),
+      ),
+    )
+    .orderBy(moneyMovements.id);
+}
+
+/**
+ * Ventas y gastos sueltos de una fecha (todavía no enganchados a un cierre).
+ * Editables/borrables mientras el día no se cerró.
+ */
+export async function getMovimientosSueltosDelDia(fecha: string) {
+  return db
+    .select({
+      id: moneyMovements.id,
+      tipo: moneyMovements.tipo,
+      categoria: moneyMovements.categoria,
+      gastoCategoria: moneyMovements.gastoCategoria,
+      monto: moneyMovements.monto,
+      descripcion: moneyMovements.descripcion,
+      cuenta: moneyAccounts.nombre,
+      cierreId: moneyMovements.cierreId,
+    })
+    .from(moneyMovements)
+    .leftJoin(moneyAccounts, eq(moneyAccounts.id, moneyMovements.cuentaId))
+    .where(
+      and(
+        eq(moneyMovements.fecha, fecha),
+        isNull(moneyMovements.cierreId),
+        inArray(moneyMovements.categoria, [...CATS_MOVIMIENTO]),
       ),
     )
     .orderBy(moneyMovements.id);

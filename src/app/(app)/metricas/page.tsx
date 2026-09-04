@@ -1,6 +1,6 @@
 import { getVentasPorDia, getGastosPorCategoria } from "@/lib/queries";
 import { fmtARS, fmtFecha } from "@/lib/format";
-import { etiquetaSalida } from "@/lib/gastos";
+import { etiquetaMovimiento } from "@/lib/gastos";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +48,7 @@ export default async function MetricasPage() {
   const gastoTotal = gastosCat.reduce((a, g) => a + Number(g.total), 0);
   const gastoAgrup = new Map<string, number>();
   for (const g of gastosCat) {
-    const k = etiquetaSalida(g.categoria, g.gastoCategoria);
+    const k = etiquetaMovimiento(g.categoria, g.gastoCategoria);
     gastoAgrup.set(k, (gastoAgrup.get(k) ?? 0) + Number(g.total));
   }
 

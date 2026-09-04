@@ -2,9 +2,10 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { fmtARS } from "@/lib/format";
-import { etiquetaSalida } from "@/lib/gastos";
-import { GastoQuickAdd } from "@/components/gasto-quick-add";
+import { useRouter } from "next/navigation";
+import { fmtARS, todayAR } from "@/lib/format";
+import { MovimientoQuickAdd } from "@/components/movimiento-quick-add";
+import { MovimientoLista, type MovimientoRow } from "@/components/movimiento-lista";
 import { registrarCierreDia, type CierreResult } from "./actions";
 
 const field =
@@ -17,32 +18,20 @@ const num = (s: string) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-type Gasto = {
-  id: number;
-  categoria: string;
-  gastoCategoria: string | null;
-  monto: string;
-  descripcion: string | null;
-  cuenta: string | null;
-  cierreId: number | null;
-};
-
 type Props = {
-  hoy: string;
   usuarios: { id: number; nombre: string }[];
-  gastos: Gasto[];
+  items: MovimientoRow[];
+  cajaChicaActual: number;
 };
 
-export function CierreForm({ hoy, usuarios, gastos }: Props) {
-  const [fecha, setFecha] = useState(hoy);
+export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
+  const router = useRouter();
+  const [stage, setStage] = useState<"items" | "confirm">("items");
   const [cerradoPorId, setCerradoPorId] = useState("");
-  const [ventaEfectivo, setVentaEfectivo] = useState("");
-  const [ventaTransferencia, setVentaTransferencia] = useState("");
   const [efectivoContado, setEfectivoContado] = useState("");
   const [efectivoATesoro, setEfectivoATesoro] = useState("");
   const [saldoReservaApp, setSaldoReservaApp] = useState("");
   const [observaciones, setObservaciones] = useState("");
-  const [agregarAbierto, setAgregarAbierto] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Extract<CierreResult, { ok: true }> | null>(
@@ -50,26 +39,34 @@ export function CierreForm({ hoy, usuarios, gastos }: Props) {
   );
   const [pending, start] = useTransition();
 
-  const totalGastos = useMemo(
-    () => gastos.reduce((a, g) => a + Number(g.monto), 0),
-    [gastos],
-  );
-  const ventas = num(ventaEfectivo) + num(ventaTransferencia);
-  const neto = ventas - totalGastos;
+  const totales = useMemo(() => {
+    let ventas = 0;
+    let gastos = 0;
+    for (const it of items) {
+      const monto = Number(it.monto);
+      if (it.categoria.startsWith("venta_")) ventas += monto;
+      else gastos += monto;
+    }
+    return { ventas, gastos, neto: ventas - gastos };
+  }, [items]);
 
-  function submit() {
+  const diferenciaPreview =
+    efectivoContado.trim() !== "" ? num(efectivoContado) - cajaChicaActual : null;
+
+  function irAConfirmar() {
     setError(null);
     if (!cerradoPorId) return setError("Elegí quién cierra el día.");
-    if (efectivoContado.trim() === "")
-      return setError("Cargá el efectivo contado en la caja.");
+    setStage("confirm");
+  }
 
+  function confirmar() {
+    setError(null);
     start(async () => {
       const res = await registrarCierreDia({
-        fecha,
+        fecha: todayAR(),
         cerradoPorId: Number(cerradoPorId),
-        ventaEfectivo: num(ventaEfectivo),
-        ventaTransferencia: num(ventaTransferencia),
-        efectivoContado: num(efectivoContado),
+        efectivoContado:
+          efectivoContado.trim() !== "" ? num(efectivoContado) : null,
         efectivoATesoro: num(efectivoATesoro),
         saldoReservaApp:
           saldoReservaApp.trim() !== "" ? num(saldoReservaApp) : null,
@@ -82,153 +79,142 @@ export function CierreForm({ hoy, usuarios, gastos }: Props) {
 
   if (result) return <Resultado result={result} />;
 
+  if (stage === "confirm") {
+    return (
+      <div className="flex flex-col gap-4">
+        <section className={section}>
+          <h2 className="mb-1 font-medium">Debería haber en Caja chica</h2>
+          <p className="tnum text-2xl font-semibold">{fmtARS(cajaChicaActual)}</p>
+          <p className="mt-1 text-xs text-subtle">
+            Ventas del día {fmtARS(totales.ventas)} − Gastos {fmtARS(totales.gastos)}
+          </p>
+        </section>
+
+        <section className={section}>
+          <label className="flex flex-col gap-1.5">
+            <span className={lbl}>¿Contaste la caja? (opcional)</span>
+            <Money
+              id="contado"
+              value={efectivoContado}
+              onChange={setEfectivoContado}
+            />
+          </label>
+          {diferenciaPreview != null && (
+            <p
+              className={
+                "mt-2 text-sm font-medium " +
+                (Math.abs(diferenciaPreview) < 0.01
+                  ? "text-pos"
+                  : "text-neg")
+              }
+            >
+              {Math.abs(diferenciaPreview) < 0.01
+                ? "Coincide."
+                : (diferenciaPreview > 0 ? "Sobra " : "Falta ") +
+                  fmtARS(Math.abs(diferenciaPreview))}
+            </p>
+          )}
+          <p className="mt-1 text-xs text-subtle">
+            Cierra igual, coincida o no.
+          </p>
+        </section>
+
+        <section className={section}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5">
+              <span className={lbl}>Efectivo que pasa al Tesoro</span>
+              <Money
+                id="tesoro"
+                value={efectivoATesoro}
+                onChange={setEfectivoATesoro}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className={lbl}>Saldo de la Reserva (opcional)</span>
+              <Money
+                id="reserva"
+                value={saldoReservaApp}
+                onChange={setSaldoReservaApp}
+              />
+            </label>
+          </div>
+          <label className="mt-3 flex flex-col gap-1.5">
+            <span className={lbl}>Observaciones (opcional)</span>
+            <textarea
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-base outline-none transition-colors focus:border-accent"
+            />
+          </label>
+        </section>
+
+        {error && (
+          <p className="rounded-lg bg-neg-weak px-3 py-2 text-sm font-medium text-neg">
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setStage("items")}
+            className="h-12 flex-1 rounded-xl border border-line text-base font-semibold text-muted"
+          >
+            Volver
+          </button>
+          <button
+            type="button"
+            onClick={confirmar}
+            disabled={pending}
+            className="h-12 flex-[2] rounded-xl bg-accent text-base font-semibold text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-60"
+          >
+            {pending ? "Guardando…" : "Confirmar y cerrar el día"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <section className={section}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label className={lbl} htmlFor="fecha">
-              Fecha
-            </label>
-            <input
-              id="fecha"
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className={field}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={lbl} htmlFor="cierra">
-              Quién cierra
-            </label>
-            <select
-              id="cierra"
-              value={cerradoPorId}
-              onChange={(e) => setCerradoPorId(e.target.value)}
-              className={field}
-            >
-              <option value="">Elegir…</option>
-              {usuarios.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </section>
-
-      <section className={section}>
-        <h2 className="mb-3 font-medium">Ventas del día</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Money id="ef" label="Dinero en cash" value={ventaEfectivo} onChange={setVentaEfectivo} />
-          <Money
-            id="tr"
-            label="Dinero en transferencias"
-            value={ventaTransferencia}
-            onChange={setVentaTransferencia}
-          />
-        </div>
-        <p className="mt-3 text-sm text-subtle">
-          Venta total{" "}
-          <span className="tnum font-semibold text-ink">{fmtARS(ventas)}</span>{" "}
-          <span className="text-xs">(bruto, antes de gastos)</span>
-        </p>
-      </section>
-
-      <section className={section}>
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-medium">Gastos del día</h2>
-          <span className="tnum text-sm text-subtle">{fmtARS(totalGastos)}</span>
-        </div>
-
-        {gastos.length === 0 ? (
-          <p className="text-sm text-subtle">Sin gastos cargados hoy.</p>
-        ) : (
-          <ul className="divide-y divide-line">
-            {gastos.map((g) => (
-              <li key={g.id} className="flex items-center gap-3 py-2 text-sm">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate">
-                    {g.descripcion ||
-                      etiquetaSalida(g.categoria, g.gastoCategoria)}
-                  </div>
-                  <div className="text-xs text-subtle">
-                    {etiquetaSalida(g.categoria, g.gastoCategoria)} · {g.cuenta}
-                  </div>
-                </div>
-                <span className="tnum shrink-0 font-medium text-neg">
-                  − {fmtARS(Number(g.monto))}
-                </span>
-              </li>
+        <label className="flex flex-col gap-1.5">
+          <span className={lbl}>Quién cierra</span>
+          <select
+            value={cerradoPorId}
+            onChange={(e) => setCerradoPorId(e.target.value)}
+            className={field}
+          >
+            <option value="">Elegir…</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre}
+              </option>
             ))}
-          </ul>
-        )}
-
-        <div className="mt-3">
-          {agregarAbierto ? (
-            <GastoQuickAdd onAdded={() => setAgregarAbierto(false)} />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setAgregarAbierto(true)}
-              className="text-sm font-medium text-accent"
-            >
-              ＋ Agregar gasto
-            </button>
-          )}
-        </div>
-      </section>
-
-      <section className={section}>
-        <h2 className="font-medium">Arqueo de Caja chica</h2>
-        <p className="mb-3 mt-1 text-xs text-subtle">
-          Contá el efectivo que hay en la caja. La diferencia se muestra al
-          guardar.
-        </p>
-        <Money
-          id="contado"
-          label="Efectivo contado"
-          value={efectivoContado}
-          onChange={setEfectivoContado}
-        />
-      </section>
-
-      <section className={section}>
-        <h2 className="mb-3 font-medium">Cierre</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Money
-            id="tesoro"
-            label="Efectivo que pasa al Tesoro"
-            value={efectivoATesoro}
-            onChange={setEfectivoATesoro}
-          />
-          <Money
-            id="reserva"
-            label="Saldo de la Reserva (opcional)"
-            value={saldoReservaApp}
-            onChange={setSaldoReservaApp}
-          />
-        </div>
-        <label className="mt-3 flex flex-col gap-1.5">
-          <span className={lbl}>Observaciones (opcional)</span>
-          <textarea
-            value={observaciones}
-            onChange={(e) => setObservaciones(e.target.value)}
-            rows={2}
-            className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-base outline-none transition-colors focus:border-accent"
-          />
+          </select>
         </label>
       </section>
 
-      {/* Resumen */}
+      <section className={section}>
+        <div className="mb-3">
+          <h2 className="font-medium">Ventas y gastos del día</h2>
+          <p className="text-xs text-subtle">
+            Marcá cada uno como efectivo o transferencia.
+          </p>
+        </div>
+        <div className="mb-3">
+          <MovimientoQuickAdd onAdded={() => router.refresh()} />
+        </div>
+        <MovimientoLista items={items} />
+      </section>
+
       <section className="rounded-2xl border border-line bg-surface-2 p-4">
         <dl className="flex flex-col gap-1.5 text-sm">
-          <Linea t="Ventas del día" v={fmtARS(ventas)} />
-          <Linea t="Gastos del día" v={"− " + fmtARS(totalGastos)} />
+          <Linea t="Ventas" v={fmtARS(totales.ventas)} />
+          <Linea t="Gastos" v={"− " + fmtARS(totales.gastos)} />
           <div className="my-1 border-t border-line" />
-          <Linea t="Neto" v={fmtARS(neto)} fuerte />
+          <Linea t="Neto" v={fmtARS(totales.neto)} fuerte />
         </dl>
       </section>
 
@@ -240,11 +226,10 @@ export function CierreForm({ hoy, usuarios, gastos }: Props) {
 
       <button
         type="button"
-        onClick={submit}
-        disabled={pending}
-        className="h-12 rounded-xl bg-accent text-base font-semibold text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-60"
+        onClick={irAConfirmar}
+        className="h-12 rounded-xl bg-accent text-base font-semibold text-on-accent transition-colors hover:bg-accent-hover"
       >
-        {pending ? "Guardando…" : "Confirmar y cerrar el día"}
+        Listo
       </button>
     </div>
   );
@@ -252,33 +237,26 @@ export function CierreForm({ hoy, usuarios, gastos }: Props) {
 
 function Money({
   id,
-  label,
   value,
   onChange,
 }: {
   id: string;
-  label: string;
   value: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className={lbl} htmlFor={id}>
-        {label}
-      </label>
-      <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle">
-          $
-        </span>
-        <input
-          id={id}
-          inputMode="decimal"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="0"
-          className={"tnum " + field + " pl-7"}
-        />
-      </div>
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle">
+        $
+      </span>
+      <input
+        id={id}
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+        className={"tnum " + field + " pl-7"}
+      />
     </div>
   );
 }
@@ -297,7 +275,8 @@ function Resultado({
 }: {
   result: Extract<CierreResult, { ok: true }>;
 }) {
-  const { arqueoCaja, arqueoReserva } = result;
+  const { arqueoCaja, arqueoReserva, ventaEfectivo, ventaTransferencia } =
+    result;
   return (
     <div className="flex flex-col gap-4">
       <section className="rounded-2xl border border-line bg-surface p-5">
@@ -305,10 +284,18 @@ function Resultado({
           <span className="size-2 rounded-full bg-pos" />
           <h2 className="font-semibold">Día cerrado</h2>
         </div>
-        <div className="mt-4 flex flex-col gap-2.5">
-          <ArqueoLinea titulo="Caja chica" a={arqueoCaja} />
-          {arqueoReserva && <ArqueoLinea titulo="Reserva" a={arqueoReserva} />}
-        </div>
+        <p className="mt-2 text-sm text-subtle">
+          Ventas:{" "}
+          <span className="tnum font-medium text-ink">
+            {fmtARS(ventaEfectivo + ventaTransferencia)}
+          </span>
+        </p>
+        {(arqueoCaja || arqueoReserva) && (
+          <div className="mt-4 flex flex-col gap-2.5">
+            {arqueoCaja && <ArqueoLinea titulo="Caja chica" a={arqueoCaja} />}
+            {arqueoReserva && <ArqueoLinea titulo="Reserva" a={arqueoReserva} />}
+          </div>
+        )}
       </section>
       <div className="flex gap-2">
         <Link

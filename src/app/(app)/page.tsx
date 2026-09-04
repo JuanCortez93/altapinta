@@ -6,31 +6,41 @@ import {
   getCuentasConSaldo,
   getCuentasInicializadas,
   getGastosDelDia,
+  getMovimientosSueltosDelDia,
 } from "@/lib/queries";
 import { fmtARS, fmtFecha, todayAR } from "@/lib/format";
-import { etiquetaSalida } from "@/lib/gastos";
+import { etiquetaMovimiento } from "@/lib/gastos";
 
 export const dynamic = "force-dynamic";
 
 export default async function HoyPage() {
   const hoy = todayAR();
-  const [cierre, gastos, arqueos, cuentas, inicializadas] = await Promise.all([
-    getCierreDelDia(hoy),
-    getGastosDelDia(hoy),
-    getArqueosDelDia(hoy),
-    getCuentasConSaldo(),
-    getCuentasInicializadas(),
-  ]);
+  const [cierre, gastos, sueltos, arqueos, cuentas, inicializadas] =
+    await Promise.all([
+      getCierreDelDia(hoy),
+      getGastosDelDia(hoy),
+      getMovimientosSueltosDelDia(hoy),
+      getArqueosDelDia(hoy),
+      getCuentasConSaldo(),
+      getCuentasInicializadas(),
+    ]);
 
   const totalGastos = gastos.reduce((a, g) => a + Number(g.monto), 0);
   const porCategoria = new Map<string, number>();
   for (const g of gastos) {
-    const k = etiquetaSalida(g.categoria, g.gastoCategoria);
+    const k = etiquetaMovimiento(g.categoria, g.gastoCategoria);
     porCategoria.set(k, (porCategoria.get(k) ?? 0) + Number(g.monto));
   }
 
   const ventaEfectivo = cierre ? Number(cierre.ventaEfectivo) : 0;
   const ventaTransf = cierre ? Number(cierre.ventaTransferencia) : 0;
+
+  const ventasSueltas = sueltos.filter((m) => m.categoria.startsWith("venta_"));
+  const totalVentasSueltas = ventasSueltas.reduce(
+    (a, m) => a + Number(m.monto),
+    0,
+  );
+
   const descuadres = arqueos.filter(
     (a) => Math.abs(Number(a.diferencia)) >= 0.01,
   );
@@ -44,10 +54,10 @@ export default async function HoyPage() {
         </div>
         <div className="flex gap-2">
           <Link
-            href="/gasto"
+            href="/movimiento"
             className="inline-flex h-10 items-center rounded-lg border border-line px-3 text-sm font-semibold text-muted"
           >
-            Gasto
+            Movimiento
           </Link>
           {!cierre && (
             <Link
@@ -61,17 +71,13 @@ export default async function HoyPage() {
       </header>
 
       {inicializadas.size === 0 && (
-        <section className="rounded-2xl border border-accent/30 bg-accent-weak p-4">
+        <section className="rounded-2xl border border-accent bg-accent-weak p-4">
           <p className="text-sm font-medium text-ink">
-            Arrancá cargando cuánto hay hoy en cada cuenta.
-          </p>
-          <p className="mt-1 text-sm text-muted">
-            Es una sola vez; después todo se mueve solo desde los cierres y los
-            gastos.
+            Todavía no cargaste el saldo inicial de las cuentas.
           </p>
           <Link
             href="/inicio"
-            className="mt-3 inline-flex h-9 items-center rounded-lg bg-accent px-3 text-sm font-semibold text-on-accent"
+            className="mt-2 inline-flex h-9 items-center rounded-lg bg-accent px-3 text-sm font-semibold text-on-accent"
           >
             Cargar saldo inicial
           </Link>
@@ -92,11 +98,22 @@ export default async function HoyPage() {
             </span>
           )}
         </div>
-        {cierre && (
+        {cierre ? (
           <div className="mt-3 grid grid-cols-2 gap-3">
             <MiniStat label="Efectivo" value={fmtARS(ventaEfectivo)} />
             <MiniStat label="Transferencia" value={fmtARS(ventaTransf)} />
           </div>
+        ) : (
+          ventasSueltas.length > 0 && (
+            <p className="mt-2 text-sm text-subtle">
+              Cargado hasta ahora:{" "}
+              <span className="tnum font-medium text-ink">
+                {fmtARS(totalVentasSueltas)}
+              </span>{" "}
+              en {ventasSueltas.length}{" "}
+              {ventasSueltas.length === 1 ? "venta" : "ventas"}.
+            </p>
+          )
         )}
       </section>
 
@@ -140,8 +157,8 @@ export default async function HoyPage() {
           {porCategoria.size === 0 ? (
             <p className="text-sm text-subtle">
               Nada cargado.{" "}
-              <Link href="/gasto" className="font-medium text-accent">
-                Cargar un gasto
+              <Link href="/movimiento" className="font-medium text-accent">
+                Cargar un movimiento
               </Link>
             </p>
           ) : (

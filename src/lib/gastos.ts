@@ -1,13 +1,17 @@
 /**
- * Categorías de "Gastos y salidas". Se cargan en cualquier momento del día y
- * quedan enganchadas al cierre del día.
+ * Movimientos sueltos del día: ventas y gastos. Se cargan en cualquier
+ * momento (o durante el cierre) y quedan enganchados al cierre del día.
  *
- * Cómo se guarda cada una en money_movements:
+ * Cada movimiento tiene un método de pago (efectivo / transferencia), que
+ * define la cuenta: efectivo -> Caja chica, transferencia -> Reserva.
+ *
+ * Cómo se guarda cada gasto en money_movements:
  *  - envios / uber / otros -> categoria "gasto" + gasto_categoria
  *  - proveedor             -> categoria "compra"
  *  - retiro                -> categoria "retiro"
  */
 export type SalidaCategoria = "envios" | "uber" | "proveedor" | "retiro" | "otros";
+export type Metodo = "efectivo" | "transferencia";
 
 export interface SalidaCatDef {
   value: SalidaCategoria;
@@ -52,12 +56,21 @@ export const SALIDA_CATEGORIAS: SalidaCatDef[] = [
   },
 ];
 
+export const METODOS: { value: Metodo; label: string; icon: string }[] = [
+  { value: "efectivo", label: "Efectivo", icon: "Banknote" },
+  { value: "transferencia", label: "Transferencia", icon: "ArrowRightLeft" },
+];
+
 export function catDef(v: string): SalidaCatDef | undefined {
   return SALIDA_CATEGORIAS.find((c) => c.value === v);
 }
 
-/** categoria / gasto_categoria que van a money_movements. */
-export function movimientoDe(cat: SalidaCategoria): {
+export function metodoDef(v: string) {
+  return METODOS.find((m) => m.value === v);
+}
+
+/** categoria / gasto_categoria que van a money_movements, para un gasto. */
+export function movimientoDeGasto(cat: SalidaCategoria): {
   categoria: "gasto" | "compra" | "retiro";
   gastoCategoria: "envios" | "uber" | "otros" | null;
 } {
@@ -66,12 +79,30 @@ export function movimientoDe(cat: SalidaCategoria): {
   return { categoria: "gasto", gastoCategoria: cat };
 }
 
+/** categoria de money_movements para una venta, según el método. */
+export function categoriaDeVenta(
+  metodo: Metodo,
+): "venta_efectivo" | "venta_transferencia" {
+  return metodo === "efectivo" ? "venta_efectivo" : "venta_transferencia";
+}
+
 /** Etiqueta legible para un movimiento ya guardado. */
-export function etiquetaSalida(
+export function etiquetaMovimiento(
   categoria: string,
   gastoCategoria: string | null,
 ): string {
+  if (categoria === "venta_efectivo" || categoria === "venta_transferencia")
+    return "Venta";
   if (categoria === "compra") return "Proveedor";
   if (categoria === "retiro") return "Retiro";
   return catDef(gastoCategoria ?? "otros")?.label ?? "Gasto";
+}
+
+/**
+ * Método de pago según el nombre de la cuenta que tocó el movimiento.
+ * Los movimientos sueltos sólo pegan en Caja chica (efectivo) o Reserva
+ * (transferencia); Tesoro sólo se usa en el barrido del cierre.
+ */
+export function metodoDeCuenta(nombreCuenta: string | null): Metodo {
+  return nombreCuenta === "Reserva" ? "transferencia" : "efectivo";
 }

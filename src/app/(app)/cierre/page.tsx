@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { getUsers, getCierreDelDia, getGastosDelDia } from "@/lib/queries";
+import {
+  getUsers,
+  getCierreDelDia,
+  getMovimientosSueltosDelDia,
+  getCuentasConSaldo,
+} from "@/lib/queries";
 import { todayAR, fmtFecha } from "@/lib/format";
 import { CierreForm } from "./cierre-form";
 
@@ -7,11 +12,14 @@ export const dynamic = "force-dynamic";
 
 export default async function CierrePage() {
   const hoy = todayAR();
-  const [usuarios, cierre, gastos] = await Promise.all([
+  const [usuarios, cierre, items, cuentas] = await Promise.all([
     getUsers(),
     getCierreDelDia(hoy),
-    getGastosDelDia(hoy),
+    getMovimientosSueltosDelDia(hoy),
+    getCuentasConSaldo(),
   ]);
+
+  const cajaChica = cuentas.find((c) => c.esCajaChica);
 
   return (
     <div className="flex flex-col gap-5">
@@ -35,17 +43,9 @@ export default async function CierrePage() {
         </div>
       ) : (
         <CierreForm
-          hoy={hoy}
           usuarios={usuarios.map((u) => ({ id: u.id, nombre: u.nombre }))}
-          gastos={gastos.map((g) => ({
-            id: g.id,
-            categoria: g.categoria,
-            gastoCategoria: g.gastoCategoria,
-            monto: g.monto,
-            descripcion: g.descripcion,
-            cuenta: g.cuenta,
-            cierreId: g.cierreId,
-          }))}
+          items={items}
+          cajaChicaActual={cajaChica?.saldo ?? 0}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
 import { getCuentasConSaldo, getMovimientosRecientes } from "@/lib/queries";
 import { fmtARS, fmtFecha } from "@/lib/format";
-import { etiquetaSalida } from "@/lib/gastos";
+import { etiquetaMovimiento } from "@/lib/gastos";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ const CAT_LABEL: Record<string, string> = {
 
 function etiqueta(categoria: string, gastoCategoria: string | null): string {
   if (["gasto", "compra", "retiro"].includes(categoria))
-    return etiquetaSalida(categoria, gastoCategoria);
+    return etiquetaMovimiento(categoria, gastoCategoria);
   return CAT_LABEL[categoria] ?? categoria;
 }
 
