@@ -4,7 +4,7 @@ import { useState } from "react";
 
 /**
  * Marca Alta Pinta.
- * El logo real (el pollo y el pescado) va en `public/logo.png`.
+ * El logo real (el pollo y el pescado) va en `public/logo.jpg`.
  * Mientras no esté, se muestra un emblema simple con los colores de la marca.
  */
 export function LogoMark({ size = 32 }: { size?: number }) {
@@ -14,7 +14,7 @@ export function LogoMark({ size = 32 }: { size?: number }) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- logo chico con fallback por onError
       <img
-        src="/logo.png"
+        src="/logo.jpg"
         alt="Alta Pinta"
         width={size}
         height={size}

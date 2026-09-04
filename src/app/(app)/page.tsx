@@ -4,6 +4,7 @@ import {
   getArqueosDelDia,
   getCierreDelDia,
   getCuentasConSaldo,
+  getCuentasInicializadas,
   getGastosDelDia,
 } from "@/lib/queries";
 import { fmtARS, fmtFecha, todayAR } from "@/lib/format";
@@ -13,11 +14,12 @@ export const dynamic = "force-dynamic";
 
 export default async function HoyPage() {
   const hoy = todayAR();
-  const [cierre, gastos, arqueos, cuentas] = await Promise.all([
+  const [cierre, gastos, arqueos, cuentas, inicializadas] = await Promise.all([
     getCierreDelDia(hoy),
     getGastosDelDia(hoy),
     getArqueosDelDia(hoy),
     getCuentasConSaldo(),
+    getCuentasInicializadas(),
   ]);
 
   const totalGastos = gastos.reduce((a, g) => a + Number(g.monto), 0);
@@ -57,6 +59,24 @@ export default async function HoyPage() {
           )}
         </div>
       </header>
+
+      {inicializadas.size === 0 && (
+        <section className="rounded-2xl border border-accent/30 bg-accent-weak p-4">
+          <p className="text-sm font-medium text-ink">
+            Arrancá cargando cuánto hay hoy en cada cuenta.
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            Es una sola vez; después todo se mueve solo desde los cierres y los
+            gastos.
+          </p>
+          <Link
+            href="/inicio"
+            className="mt-3 inline-flex h-9 items-center rounded-lg bg-accent px-3 text-sm font-semibold text-on-accent"
+          >
+            Cargar saldo inicial
+          </Link>
+        </section>
+      )}
 
       {/* Ventas */}
       <section className="rounded-2xl border border-line bg-surface p-5">

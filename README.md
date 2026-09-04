@@ -24,37 +24,33 @@ hamburguesas y albóndigas de pollo.
 | Sucursales | 1 hoy (**Alta Pinta**). El modelo ya es multisucursal para el futuro. |
 | Balanza | Sin integración. El peso se carga a mano. |
 | Stock | Global por producto, pero con **lotes fechados** (fecha de ingreso + costo real) para rotar lo más viejo primero (FEFO). |
-| Turnos | `mañana` y `tarde` (lunes a sábado); `domingo` turno único de media mañana. Un parte por turno. |
+| Cierre | **Uno por día** (no por turno). Ventas brutas + gastos del día + arqueo. |
 | Personas | Lista fija. Seed: Esequiel y Stella (encargado), Graciela (vendedor). |
-| Cuentas de dinero | **Tesoro** (efectivo global), **Caja chica** (efectivo operativo, con fondo fijo), **Mercado Pago** (digital). |
-| Fondo fijo | Al cierre del día queda un monto fijo en Caja chica; el resto pasa al Tesoro. |
-| Arqueo Caja chica | **Uno por turno** (aísla una diferencia a mañana o tarde). |
-| Mercado Pago | Sólo se usa para pagar. Por ahora no se retira plata de MP. |
-| Conteo de stock | Set clave **diario** + inventario **completo** periódico. Conteo **a ciegas** por defecto (no se ve el teórico hasta cargar). |
-| Costeo | Por lote, al costo real de cada compra. Consumo del lote más antiguo primero. |
-| Retiros / sueldos | Egresos de la cuenta que corresponda. |
-| Promociones | Se deciden según margen + antigüedad de stock. Impacto medido de forma agregada. |
+| Cuentas de dinero | **Tesoro** (efectivo, la caja del lugar), **Caja chica** (efectivo operativo), **Reserva** (adonde van las transferencias del día; se mueve según rinde el banco). Sin cuenta de provisión de sueldos. |
+| Gastos | Se cargan en **cualquier momento** del día (Envíos, Uber, Proveedor, Retiro, Otros) y quedan enganchados al cierre. "Otros" exige descripción. |
+| Arqueo Caja chica | Uno por día, con conteo físico y diferencia. |
+| Puesta en marcha | **Tabula rasa**: no se importa histórico. El día que arranca el uso real se carga el saldo que hay en ese momento en cada cuenta (`/inicio`, movimiento `fondo_inicial`) y de ahí en más todo sale de la app. |
+| Conteo de stock | Set clave **diario** + inventario **completo** periódico. Conteo **a ciegas** por defecto (no se ve el teórico hasta cargar). *(Fase 2, no construido aún.)* |
+| Costeo | Por lote, al costo real de cada compra. Consumo del lote más antiguo primero. *(Fase 2.)* |
+| Promociones | Se deciden según margen + antigüedad de stock. Impacto medido de forma agregada. *(Fase 4.)* |
 
 ---
 
 ## Circuito operativo
 
-### Día normal (lunes a sábado)
+### Día normal
 
 ```
-Apertura       Caja chica arranca con su fondo fijo
-Cierre mañana  parte de turno  → + efectivo a Caja chica, + transferencia a Mercado Pago
-               arqueo Caja chica (a ciegas)  → diferencia mañana
-Cierre tarde   parte de turno  → + efectivo a Caja chica, + transferencia a Mercado Pago
-               arqueo Caja chica (a ciegas)  → diferencia tarde
-Cierre del día barrido Caja chica → Tesoro, dejando el fondo fijo
-               arqueo Mercado Pago (contra el saldo de la app)
-Durante el día gastos            → egreso de Caja chica
-               compras           → egreso de Tesoro o Mercado Pago
-Semanal        arqueo Tesoro + inventario completo
+Durante el día  se cargan gastos apenas ocurren (Envíos, Uber, Proveedor,
+                Retiro, Otros) → egreso de Caja chica o Tesoro
+Cierre del día  dinero en cash + dinero en transferencias (venta bruta)
+                → + efectivo a Caja chica, + transferencia a Reserva
+                gastos del día ya cargados se enganchan al cierre
+                arqueo de Caja chica (a ciegas) → diferencia
+                barrido Caja chica → Tesoro
+                arqueo de Reserva (opcional, contra el saldo real)
+Semanal         arqueo Tesoro + inventario completo (Fase 2)
 ```
-
-Domingo: un solo turno (`domingo`), un parte, un arqueo, un barrido.
 
 ### Las dos conciliaciones
 
@@ -74,7 +70,7 @@ salida estimada = stock del conteo previo
                 − salidas registradas (merma, autoconsumo, ...)
 
 venta estimada por stock = salida estimada valorizada a precio de venta
-gap                      = venta estimada por stock − Σ partes de turno del período
+gap                      = venta estimada por stock − Σ cierres del período
 ```
 
 Un `gap` grande ⇒ venta no declarada, merma no registrada, error de conteo o

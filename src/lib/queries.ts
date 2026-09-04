@@ -56,6 +56,15 @@ export async function getCuentasConSaldo(): Promise<CuentaConSaldo[]> {
   });
 }
 
+/** ids de cuentas que ya tienen cargado su saldo inicial (fondo_inicial). */
+export async function getCuentasInicializadas(): Promise<Set<number>> {
+  const rows = await db
+    .select({ cuentaId: moneyMovements.cuentaId })
+    .from(moneyMovements)
+    .where(eq(moneyMovements.categoria, "fondo_inicial"));
+  return new Set(rows.map((r) => r.cuentaId));
+}
+
 export async function getCierreDelDia(fecha: string) {
   const [c] = await db
     .select()

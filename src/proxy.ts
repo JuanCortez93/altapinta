@@ -20,6 +20,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // todo menos assets estáticos y la API interna de Next
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
+  // todo menos assets estáticos (lo que hay en /public, con o sin extensión
+  // conocida) y la API interna de Next.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest|txt)$).*)",
+  ],
 };
