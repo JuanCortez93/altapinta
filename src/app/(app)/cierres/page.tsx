@@ -13,7 +13,7 @@ export default async function CierresPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Cierres</h1>
         <Link
           href="/cierre"
-          className="inline-flex h-10 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent"
+          className="btn btn-primary h-10 px-4 text-sm"
         >
           Cerrar el día
         </Link>

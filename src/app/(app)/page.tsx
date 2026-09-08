@@ -53,17 +53,11 @@ export default async function HoyPage() {
           <p className="mt-0.5 text-sm capitalize text-subtle">{fmtFecha(hoy)}</p>
         </div>
         <div className="flex gap-2">
-          <Link
-            href="/movimiento"
-            className="inline-flex h-10 items-center rounded-lg border border-line px-3 text-sm font-semibold text-muted"
-          >
+          <Link href="/movimiento" className="btn btn-secondary h-10 px-3 text-sm">
             Movimiento
           </Link>
           {!cierre && (
-            <Link
-              href="/cierre"
-              className="inline-flex h-10 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent"
-            >
+            <Link href="/cierre" className="btn btn-primary h-10 px-4 text-sm">
               Cerrar el día
             </Link>
           )}
@@ -71,21 +65,18 @@ export default async function HoyPage() {
       </header>
 
       {inicializadas.size === 0 && (
-        <section className="rounded-2xl border border-accent bg-accent-weak p-4">
+        <section className="rounded-2xl border border-gold bg-gold/10 p-4">
           <p className="text-sm font-medium text-ink">
             Todavía no cargaste el saldo inicial de las cuentas.
           </p>
-          <Link
-            href="/inicio"
-            className="mt-2 inline-flex h-9 items-center rounded-lg bg-accent px-3 text-sm font-semibold text-on-accent"
-          >
+          <Link href="/inicio" className="btn btn-gold mt-2 h-9 px-3 text-sm">
             Cargar saldo inicial
           </Link>
         </section>
       )}
 
       {/* Ventas */}
-      <section className="rounded-2xl border border-line bg-surface p-5">
+      <section className="card p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-sm font-medium text-muted">Ventas del día</h2>
           {cierre ? (
@@ -148,7 +139,7 @@ export default async function HoyPage() {
       )}
 
       {/* Gastos */}
-      <section className="rounded-2xl border border-line bg-surface">
+      <section className="card">
         <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
           <h2 className="text-sm font-medium text-muted">Gastos del día</h2>
           <span className="tnum text-sm font-medium">{fmtARS(totalGastos)}</span>

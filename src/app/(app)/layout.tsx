@@ -17,10 +17,7 @@ export default function AppLayout({
           </Link>
           <div className="flex-1" />
           <form action={logout}>
-            <button
-              type="submit"
-              className="rounded-md px-2 py-1 text-sm text-subtle transition-colors hover:bg-surface-2 hover:text-ink"
-            >
+            <button type="submit" className="btn btn-ghost h-8 px-2.5 text-sm">
               Salir
             </button>
           </form>

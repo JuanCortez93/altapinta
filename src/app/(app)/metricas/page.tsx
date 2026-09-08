@@ -108,7 +108,7 @@ export default async function MetricasPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-line bg-surface">
+          <section className="card">
             <h2 className="border-b border-line px-5 py-3 text-sm font-medium text-muted">
               Venta por día
             </h2>

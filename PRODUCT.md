@@ -38,8 +38,9 @@ exclamación decorativos. Los mensajes de error dicen qué pasó y qué hacer.
    mano. Campos grandes, poco scroll, teclado numérico donde va un número.
 2. **El número manda.** La plata y las diferencias son el contenido. Todo lo
    demás (bordes, íconos, color de marca) va atrás.
-3. **Conteo a ciegas.** La app nunca muestra el saldo teórico antes de que la
-   persona cargue lo que contó. La diferencia se revela al guardar.
+3. **El cierre nunca se bloquea.** Al cerrar el día se muestra cuánto debería
+   haber en la caja; contar es opcional y se confirma coincida o no. La
+   diferencia queda registrada para conversarla, no para trabar.
 4. **Verde / rojo significan algo.** Verde = cuadra o entra plata. Rojo = falta o
    sale plata. Ámbar = prestá atención. No usar esos colores de adorno.
 5. **Low cost.** Vercel + Supabase gratis. Sin dependencias pesadas.

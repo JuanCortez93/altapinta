@@ -3,31 +3,37 @@
 /* ------------------------------------------------------------------ *
  * Alta Pinta — design tokens
  * Register: product. Color strategy: Restrained.
- * Neutrals tinted toward brand navy. Blue is the functional accent;
- * gold is identity-only. Green / red / amber carry state, not brand.
+ * Neutros tintados hacia el azul de marca. El azul es el acento
+ * funcional; el dorado se reserva para momentos de identidad (login,
+ * primer arranque, el logo). Verde / rojo / ámbar son estado, no marca.
+ * Paleta calibrada contra el logo: aro dorado, azul profundo, azules
+ * brillantes de las olas, blanco.
  * ------------------------------------------------------------------ */
 
 :root {
   color-scheme: light;
 
-  --canvas: oklch(0.975 0.005 245);
-  --surface: oklch(0.995 0.003 245);
-  --surface-2: oklch(0.96 0.008 248);
+  --canvas: oklch(0.976 0.005 245);
+  --surface: oklch(0.996 0.003 245);
+  --surface-2: oklch(0.958 0.009 248);
 
-  --ink: oklch(0.28 0.03 255);
-  --muted: oklch(0.52 0.022 255);
-  --subtle: oklch(0.64 0.016 255);
+  --ink: oklch(0.27 0.032 255);
+  --muted: oklch(0.51 0.023 255);
+  --subtle: oklch(0.63 0.017 255);
 
-  --line: oklch(0.9 0.008 255);
-  --line-strong: oklch(0.82 0.012 255);
+  --line: oklch(0.9 0.009 255);
+  --line-strong: oklch(0.82 0.013 255);
 
-  --accent: oklch(0.52 0.15 253);
-  --accent-hover: oklch(0.46 0.15 253);
-  --accent-weak: oklch(0.95 0.032 253);
-  --on-accent: oklch(0.99 0.01 253);
+  /* Azul de las olas del logo. */
+  --accent: oklch(0.53 0.158 250);
+  --accent-hover: oklch(0.47 0.16 250);
+  --accent-weak: oklch(0.951 0.034 250);
+  --on-accent: oklch(0.99 0.012 250);
 
-  --gold: oklch(0.77 0.14 76);
-  --gold-strong: oklch(0.7 0.15 66);
+  /* Aro dorado del logo. */
+  --gold: oklch(0.78 0.142 74);
+  --gold-strong: oklch(0.71 0.152 66);
+  --on-gold: oklch(0.28 0.05 60);
 
   --pos: oklch(0.55 0.13 155);
   --pos-weak: oklch(0.95 0.04 155);
@@ -36,31 +42,35 @@
   --warn: oklch(0.72 0.14 85);
   --warn-weak: oklch(0.95 0.05 85);
 
-  --ring: oklch(0.52 0.15 253 / 0.45);
+  --ring: oklch(0.53 0.158 250 / 0.42);
+  --shadow-sm: 0 1px 2px oklch(0.27 0.032 255 / 0.05),
+    0 1px 1px oklch(0.27 0.032 255 / 0.04);
+  --ease: cubic-bezier(0.2, 0.9, 0.25, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    --canvas: oklch(0.2 0.02 260);
-    --surface: oklch(0.24 0.022 260);
-    --surface-2: oklch(0.22 0.025 262);
+    --canvas: oklch(0.2 0.021 260);
+    --surface: oklch(0.242 0.023 260);
+    --surface-2: oklch(0.222 0.026 262);
 
     --ink: oklch(0.94 0.01 250);
     --muted: oklch(0.72 0.016 250);
     --subtle: oklch(0.58 0.016 250);
 
-    --line: oklch(0.34 0.016 258);
-    --line-strong: oklch(0.44 0.02 258);
+    --line: oklch(0.34 0.017 258);
+    --line-strong: oklch(0.45 0.021 258);
 
-    --accent: oklch(0.68 0.14 250);
-    --accent-hover: oklch(0.74 0.13 250);
-    --accent-weak: oklch(0.3 0.05 252);
-    --on-accent: oklch(0.18 0.02 258);
+    --accent: oklch(0.69 0.142 250);
+    --accent-hover: oklch(0.75 0.132 250);
+    --accent-weak: oklch(0.31 0.05 252);
+    --on-accent: oklch(0.17 0.022 258);
 
-    --gold: oklch(0.8 0.13 78);
-    --gold-strong: oklch(0.74 0.14 70);
+    --gold: oklch(0.8 0.132 78);
+    --gold-strong: oklch(0.74 0.142 70);
+    --on-gold: oklch(0.2 0.03 60);
 
     --pos: oklch(0.72 0.13 158);
     --pos-weak: oklch(0.32 0.05 158);
@@ -69,7 +79,8 @@
     --warn: oklch(0.82 0.12 85);
     --warn-weak: oklch(0.34 0.05 85);
 
-    --ring: oklch(0.68 0.14 250 / 0.5);
+    --ring: oklch(0.69 0.142 250 / 0.5);
+    --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.25);
   }
 }
 
@@ -88,6 +99,7 @@
   --color-on-accent: var(--on-accent);
   --color-gold: var(--gold);
   --color-gold-strong: var(--gold-strong);
+  --color-on-gold: var(--on-gold);
   --color-pos: var(--pos);
   --color-pos-weak: var(--pos-weak);
   --color-neg: var(--neg);
@@ -116,11 +128,115 @@ body {
   font-feature-settings: "tnum";
 }
 
+@layer components {
+  /* Tarjeta de sección: superficie + hairline + sombra mínima. */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ------------------------------------------------------------ *
+   * Botones: borde fino que reacciona a hover / active / focus.
+   * El tamaño (h-*, text-*, w-*) se pasa por utilidades aparte.
+   * ------------------------------------------------------------ */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      border-color 140ms var(--ease),
+      box-shadow 140ms var(--ease),
+      background-color 140ms var(--ease),
+      color 140ms var(--ease),
+      transform 90ms var(--ease);
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--on-accent);
+    border-color: color-mix(in oklab, var(--on-accent) 24%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--on-accent) 22%, transparent);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: color-mix(in oklab, var(--on-accent) 46%, transparent);
+  }
+  .btn-primary:active:not(:disabled) {
+    box-shadow: inset 0 2px 5px color-mix(in oklab, black 22%, transparent);
+  }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn-secondary:active:not(:disabled) {
+    background: var(--surface-2);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border-color: transparent;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    border-color: var(--line-strong);
+    color: var(--ink);
+    background: var(--surface-2);
+  }
+
+  .btn-gold {
+    background: var(--gold);
+    color: var(--on-gold);
+    border-color: color-mix(in oklab, black 14%, var(--gold));
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 30%, transparent);
+  }
+  .btn-gold:hover:not(:disabled) {
+    background: var(--gold-strong);
+    border-color: color-mix(in oklab, black 20%, var(--gold-strong));
+  }
+  .btn-gold:active:not(:disabled) {
+    box-shadow: inset 0 2px 5px color-mix(in oklab, black 22%, transparent);
+  }
+}
+
 /* Foco visible y consistente en toda la app. */
 @layer base {
   :focus-visible {
     outline: 2px solid transparent;
     box-shadow: 0 0 0 3px var(--ring);
-    border-radius: 6px;
+    border-radius: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  .btn:active:not(:disabled) {
+    transform: none;
   }
 }

@@ -66,11 +66,12 @@ export function MetodoToggle({
             key={m.value}
             type="button"
             onClick={() => onChange(m.value)}
+            aria-pressed={active}
             className={
-              "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-colors " +
+              "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-[color,background-color,border-color] duration-150 active:translate-y-px " +
               (active
                 ? "border-accent bg-accent-weak text-accent"
-                : "border-line text-muted")
+                : "border-line text-muted hover:border-line-strong hover:text-ink")
             }
           >
             <MetodoIcon metodo={m.value} className="size-3.5" />
@@ -131,7 +132,7 @@ export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
         <button
           type="button"
           onClick={() => setTipo("venta")}
-          className="flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas py-3 text-sm font-medium text-pos transition-colors hover:border-pos"
+          className="flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas py-3 text-sm font-medium text-pos transition-[border-color,background-color] duration-150 hover:border-pos hover:bg-pos-weak active:translate-y-px"
         >
           <ArrowDownCircle className="size-5" />
           Venta
@@ -139,7 +140,7 @@ export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
         <button
           type="button"
           onClick={() => setTipo("gasto")}
-          className="flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas py-3 text-sm font-medium text-neg transition-colors hover:border-neg"
+          className="flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas py-3 text-sm font-medium text-neg transition-[border-color,background-color] duration-150 hover:border-neg hover:bg-neg-weak active:translate-y-px"
         >
           <ArrowUpCircle className="size-5" />
           Gasto
@@ -159,7 +160,7 @@ export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
                 key={c.value}
                 type="button"
                 onClick={() => setCategoria(c.value)}
-                className="flex flex-col items-center gap-1.5 rounded-xl border border-line bg-canvas px-2 py-3 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent"
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-line bg-canvas px-2 py-3 text-xs font-medium text-muted transition-[color,border-color,background-color] duration-150 hover:border-accent hover:bg-accent-weak hover:text-accent active:translate-y-px"
               >
                 <Icon className="size-5" />
                 {c.label}
@@ -227,7 +228,7 @@ export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
           type="button"
           onClick={guardar}
           disabled={pending}
-          className="h-9 rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent hover:bg-accent-hover disabled:opacity-60"
+          className="btn btn-primary h-9 px-4 text-sm"
         >
           {pending ? "Guardando…" : "Guardar"}
         </button>

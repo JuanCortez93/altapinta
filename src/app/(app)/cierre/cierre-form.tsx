@@ -11,7 +11,7 @@ import { registrarCierreDia, type CierreResult } from "./actions";
 const field =
   "h-11 w-full rounded-lg border border-line bg-canvas px-3 text-base outline-none transition-colors focus:border-accent";
 const lbl = "text-sm font-medium text-muted";
-const section = "rounded-2xl border border-line bg-surface p-4";
+const section = "card p-4";
 
 const num = (s: string) => {
   const n = Number(String(s).replace(",", "."));
@@ -159,7 +159,7 @@ export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
           <button
             type="button"
             onClick={() => setStage("items")}
-            className="h-12 flex-1 rounded-xl border border-line text-base font-semibold text-muted"
+            className="btn btn-secondary h-12 flex-1 text-base"
           >
             Volver
           </button>
@@ -167,7 +167,7 @@ export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
             type="button"
             onClick={confirmar}
             disabled={pending}
-            className="h-12 flex-[2] rounded-xl bg-accent text-base font-semibold text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-60"
+            className="btn btn-primary h-12 flex-[2] text-base"
           >
             {pending ? "Guardando…" : "Confirmar y cerrar el día"}
           </button>
@@ -227,7 +227,7 @@ export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
       <button
         type="button"
         onClick={irAConfirmar}
-        className="h-12 rounded-xl bg-accent text-base font-semibold text-on-accent transition-colors hover:bg-accent-hover"
+        className="btn btn-primary h-12 text-base"
       >
         Listo
       </button>
@@ -279,7 +279,7 @@ function Resultado({
     result;
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-2xl border border-line bg-surface p-5">
+      <section className="card p-5">
         <div className="flex items-center gap-1.5 text-pos">
           <span className="size-2 rounded-full bg-pos" />
           <h2 className="font-semibold">Día cerrado</h2>
@@ -298,16 +298,10 @@ function Resultado({
         )}
       </section>
       <div className="flex gap-2">
-        <Link
-          href="/"
-          className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-accent text-sm font-semibold text-on-accent"
-        >
+        <Link href="/" className="btn btn-primary h-11 flex-1 text-sm">
           Ver el día
         </Link>
-        <Link
-          href="/metricas"
-          className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-line text-sm font-semibold text-muted"
-        >
+        <Link href="/metricas" className="btn btn-secondary h-11 flex-1 text-sm">
           Métricas
         </Link>
       </div>

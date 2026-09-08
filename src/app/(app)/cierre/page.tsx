@@ -29,14 +29,14 @@ export default async function CierrePage() {
       </header>
 
       {cierre ? (
-        <div className="rounded-2xl border border-line bg-surface p-5 text-sm">
+        <div className="card p-5 text-sm">
           <p className="font-medium text-pos">El día ya está cerrado.</p>
           <p className="mt-1 text-subtle">
             Si algo quedó mal, corregilo en el detalle del cierre.
           </p>
           <Link
             href="/"
-            className="mt-3 inline-flex h-10 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent"
+            className="btn btn-primary mt-3 h-10 px-4 text-sm"
           >
             Ver el día
           </Link>

@@ -22,11 +22,11 @@ export default async function MovimientoPage() {
         <p className="mt-0.5 text-sm capitalize text-subtle">{fmtFecha(hoy)}</p>
       </header>
 
-      <section className="rounded-2xl border border-line bg-surface p-4">
+      <section className="card p-4">
         <MovimientoQuickAdd />
       </section>
 
-      <section className="rounded-2xl border border-line bg-surface">
+      <section className="card">
         <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
           <h2 className="text-sm font-medium text-muted">Hoy, sin cerrar</h2>
           <span className="text-xs text-subtle">

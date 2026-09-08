@@ -18,10 +18,10 @@ export function NavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={
-        "relative whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors " +
+        "relative whitespace-nowrap rounded-md border px-2.5 py-1.5 text-sm font-medium transition-[color,background-color,border-color] duration-150 " +
         (active
-          ? "text-accent"
-          : "text-muted hover:bg-surface-2 hover:text-ink")
+          ? "border-transparent text-accent"
+          : "border-transparent text-muted hover:border-line-strong hover:text-ink")
       }
     >
       {children}

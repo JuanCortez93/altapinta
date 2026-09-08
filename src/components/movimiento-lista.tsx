@@ -107,7 +107,7 @@ function ViewRow({ m, onEditar }: { m: MovimientoRow; onEditar: () => void }) {
           <button
             type="button"
             onClick={onEditar}
-            className="rounded-md p-1.5 text-subtle transition-colors hover:bg-accent-weak hover:text-accent"
+            className="rounded-md border border-transparent p-1.5 text-subtle transition-[color,background-color,border-color] duration-150 hover:border-accent/40 hover:bg-accent-weak hover:text-accent"
             aria-label="Editar"
           >
             <Pencil className="size-4" />
@@ -121,7 +121,7 @@ function ViewRow({ m, onEditar }: { m: MovimientoRow; onEditar: () => void }) {
                 router.refresh();
               })
             }
-            className="rounded-md p-1.5 text-subtle transition-colors hover:bg-neg-weak hover:text-neg disabled:opacity-50"
+            className="rounded-md border border-transparent p-1.5 text-subtle transition-[color,background-color,border-color] duration-150 hover:border-neg/40 hover:bg-neg-weak hover:text-neg disabled:opacity-50"
             aria-label="Borrar"
           >
             <Trash2 className="size-4" />
@@ -202,7 +202,7 @@ function EditRow({ m, onDone }: { m: MovimientoRow; onDone: () => void }) {
         <button
           type="button"
           onClick={onDone}
-          className="h-9 rounded-lg px-3 text-sm font-medium text-muted"
+          className="btn btn-ghost h-9 px-3 text-sm"
         >
           Cancelar
         </button>
@@ -210,7 +210,7 @@ function EditRow({ m, onDone }: { m: MovimientoRow; onDone: () => void }) {
           type="button"
           onClick={guardar}
           disabled={pending}
-          className="h-9 rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent hover:bg-accent-hover disabled:opacity-60"
+          className="btn btn-primary h-9 px-4 text-sm"
         >
           {pending ? "Guardando…" : "Guardar"}
         </button>

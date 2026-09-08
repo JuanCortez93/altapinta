@@ -7,7 +7,7 @@ import { registrarSaldoInicial } from "./actions";
 const field =
   "h-11 w-full rounded-lg border border-line bg-canvas px-3 text-base outline-none transition-colors focus:border-accent";
 const lbl = "text-sm font-medium text-muted";
-const section = "rounded-2xl border border-line bg-surface p-4";
+const section = "card p-4";
 
 const num = (s: string) => {
   const n = Number(String(s).replace(",", "."));
@@ -120,7 +120,7 @@ export function InicioForm({ hoy, cuentas }: { hoy: string; cuentas: Cuenta[] })
         type="button"
         onClick={submit}
         disabled={pending}
-        className="h-12 rounded-xl bg-accent text-base font-semibold text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-60"
+        className="btn btn-gold h-12 text-base"
       >
         {pending ? "Guardando…" : "Guardar saldo inicial"}
       </button>
