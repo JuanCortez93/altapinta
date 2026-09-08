@@ -115,6 +115,67 @@ async function main() {
     }
   }
 
+  // ---- Proveedores --------------------------------------------------
+  for (const nombre of ["Miguel"]) {
+    const [ya] = await db
+      .select()
+      .from(schema.suppliers)
+      .where(eq(schema.suppliers.nombre, nombre));
+    if (!ya) {
+      await db
+        .insert(schema.suppliers)
+        .values({ nombre, contacto: "Pollo recién faenado" });
+      console.log("+ proveedor:", nombre);
+    }
+  }
+
+  // ---- Catálogo de productos ---------------------------------------
+  const catId = new Map<string, number>();
+  for (const c of await db.select().from(schema.productCategories)) {
+    catId.set(c.nombre, c.id);
+  }
+  const K = "kg" as const;
+  const U = "unidad" as const;
+  const C = "cajon" as const;
+  type Pres = typeof K | typeof U | typeof C;
+  const productos: {
+    nombre: string;
+    categoria: string;
+    unidad: Pres;
+    presentaciones?: Pres[];
+  }[] = [
+    { nombre: "Pollo entero", categoria: "Pollo", unidad: C, presentaciones: [C, K, U] },
+    { nombre: "Pata muslo", categoria: "Pollo", unidad: K, presentaciones: [K, C] },
+    { nombre: "Filet de pollo", categoria: "Pollo", unidad: K, presentaciones: [K, C] },
+    { nombre: "Alitas", categoria: "Pollo", unidad: K, presentaciones: [K, C] },
+    { nombre: "Merluza", categoria: "Pescado", unidad: K, presentaciones: [K, C] },
+    { nombre: "Medallones de pollo", categoria: "Rebozados", unidad: C, presentaciones: [C, U] },
+    { nombre: "Medallones de pollo JyQ", categoria: "Rebozados", unidad: C, presentaciones: [C, U] },
+    { nombre: "Medallones de merluza", categoria: "Rebozados", unidad: C, presentaciones: [C, U] },
+    { nombre: "Medallones de merluza EyQ", categoria: "Rebozados", unidad: C, presentaciones: [C, U] },
+    { nombre: "Patitas de pollo", categoria: "Rebozados", unidad: C, presentaciones: [C, U] },
+    { nombre: "Patitas de pollo JyQ", categoria: "Rebozados", unidad: C, presentaciones: [C, U] },
+    { nombre: "Nuggets de pollo", categoria: "Rebozados", unidad: C, presentaciones: [C, U] },
+    { nombre: "Bastones de muzzarella", categoria: "Rebozados", unidad: C, presentaciones: [C, U] },
+    { nombre: "Bocaditos de muzzarella", categoria: "Rebozados", unidad: C, presentaciones: [C, U] },
+    { nombre: "Milanesa de soja", categoria: "Milanesas de soja", unidad: C, presentaciones: [C, U] },
+  ];
+  for (const p of productos) {
+    const [ya] = await db
+      .select()
+      .from(schema.products)
+      .where(eq(schema.products.nombre, p.nombre));
+    if (!ya) {
+      await db.insert(schema.products).values({
+        nombre: p.nombre,
+        categoriaId: catId.get(p.categoria) ?? null,
+        unidad: p.unidad,
+        presentaciones: p.presentaciones ?? null,
+      });
+      console.log("+ producto:", p.nombre);
+    }
+  }
+
   console.log("\nSeed listo.");
   await client.end();
 }

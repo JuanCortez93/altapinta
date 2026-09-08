@@ -32,6 +32,7 @@ hamburguesas y albóndigas de pollo.
 | Movimientos | **Ventas y gastos se cargan como ítems sueltos**, en cualquier momento del día (no sólo al cerrar). Cada ítem es efectivo o transferencia (ícono `Banknote` / `ArrowRightLeft`); efectivo pega en Caja chica, transferencia en Reserva. Editables y borrables hasta que se cierra el día. Gastos: Envíos, Uber, Proveedor, Retiro, Otros ("Otros" exige descripción). |
 | Arqueo Caja chica | **Opcional y no bloqueante.** Al cerrar se muestra cuánto debería haber; contar la caja es opcional y el cierre se confirma coincida o no. |
 | Puesta en marcha | **Tabula rasa**: no se importa histórico. El día que arranca el uso real se carga el saldo que hay en ese momento en cada cuenta (`/inicio`, movimiento `fondo_inicial`) y de ahí en más todo sale de la app. |
+| Compras | **Multi-renglón** (se acabó cargar producto por producto). Catálogo de productos + "Otro" texto libre. Cada renglón lleva **presentación** cajón / kilo / unidad, sólo cuando el producto admite más de una. Genera `stock_lots` (salvo los "Otro") + un egreso de plata (Caja chica o Reserva). |
 | Conteo de stock | Set clave **diario** + inventario **completo** periódico. Conteo **a ciegas** por defecto (no se ve el teórico hasta cargar). *(Fase 2, no construido aún.)* |
 | Costeo | Por lote, al costo real de cada compra. Consumo del lote más antiguo primero. *(Fase 2.)* |
 | Promociones | Se deciden según margen + antigüedad de stock. Impacto medido de forma agregada. *(Fase 4.)* |
@@ -116,7 +117,7 @@ Notas:
 |---|---|
 | **0 — Base** ✅ | Scaffold Next.js + Drizzle + Supabase, esquema completo, seed. |
 | **1 — MVP plata** 🚧 | Login con contraseña compartida · **Movimiento** (cargar venta o gasto en cualquier momento, efectivo/transferencia, editable/borrable) · **Cierre del día** ("Listo" → debería haber $X → arqueo opcional → confirmar) · **Inicio** (saldo inicial de las cuentas, una vez) · **Hoy** (dashboard) · **Cierres** (historial) · **Métricas** (venta por día, promedio por día de semana, gasto por categoría) · **Cuentas** (saldos + movimientos). |
-| **2 — Stock** | Compras por lote (kg + fecha + precio), salidas registradas, checklist diario a ciegas, inventario completo por zona, reporte de antigüedad. |
+| **2 — Stock** 🚧 | **Compra** (multi-renglón, catálogo de productos + "Otro", presentación cajón/kilo/unidad por renglón, genera lotes + egreso de plata) ✅. Falta: salidas registradas, checklist diario a ciegas, inventario completo por zona, reporte de antigüedad. |
 | **3 — Conciliación + producción** | Conciliación venta vs stock, recetas y órdenes de producción, margen por producto. |
 | **4 — Promos + 2ª sucursal** | Promociones + panel de candidatos, alta de la segunda sucursal. |
 

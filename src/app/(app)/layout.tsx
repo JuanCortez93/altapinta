@@ -25,6 +25,7 @@ export default function AppLayout({
         <nav className="mx-auto -mt-0.5 flex w-full max-w-3xl items-center gap-1 overflow-x-auto px-3 pb-1.5">
           <NavLink href="/">Hoy</NavLink>
           <NavLink href="/movimiento">Movimiento</NavLink>
+          <NavLink href="/compra">Compra</NavLink>
           <NavLink href="/cierre">Cierre</NavLink>
           <NavLink href="/cierres">Cierres</NavLink>
           <NavLink href="/metricas">Métricas</NavLink>

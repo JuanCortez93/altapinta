@@ -33,7 +33,7 @@ import {
 export const rolEnum = pgEnum("rol", ["dueno", "encargado", "vendedor"]);
 
 export const productoTipoEnum = pgEnum("producto_tipo", ["reventa", "elaborado"]);
-export const unidadEnum = pgEnum("unidad", ["kg", "unidad"]);
+export const unidadEnum = pgEnum("unidad", ["kg", "unidad", "cajon"]);
 export const zonaEnum = pgEnum("zona", [
   "heladera",
   "freezer",
@@ -157,7 +157,14 @@ export const products = pgTable("products", {
   nombre: text("nombre").notNull(),
   categoriaId: integer("categoria_id").references(() => productCategories.id),
   tipo: productoTipoEnum("tipo").notNull().default("reventa"),
+  /** Presentación por defecto. */
   unidad: unidadEnum("unidad").notNull().default("kg"),
+  /**
+   * Presentaciones permitidas en una compra. Si tiene más de una, el
+   * formulario muestra el selector de cajón / kilo / unidad. Si es null o
+   * de una sola, no pregunta.
+   */
+  presentaciones: unidadEnum("presentaciones").array(),
   zona: zonaEnum("zona").notNull().default("mostrador"),
   /** Entra en el checklist de conteo diario (set clave). */
   controlDiario: boolean("control_diario").notNull().default(false),
@@ -195,12 +202,15 @@ export const purchases = pgTable("purchases", {
     .notNull()
     .references(() => branches.id),
   proveedorId: integer("proveedor_id").references(() => suppliers.id),
+  /** Proveedor escrito a mano cuando no está en la lista. */
+  proveedorTexto: text("proveedor_texto"),
   fechaCompra: date("fecha_compra").notNull(),
   total: numeric("total", { precision: 14, scale: 2 }).notNull(),
-  /** Cuenta de la que salió la plata. */
+  /** Cuenta de la que salió la plata (Caja chica = efectivo, Reserva = transferencia). */
   cuentaPagoId: integer("cuenta_pago_id").references(() => moneyAccounts.id),
   usuarioId: integer("usuario_id").references(() => users.id),
   notas: text("notas"),
+  origen: origenEnum("origen").notNull().default("app"),
   creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -209,11 +219,14 @@ export const purchaseItems = pgTable("purchase_items", {
   purchaseId: integer("purchase_id")
     .notNull()
     .references(() => purchases.id),
-  productId: integer("product_id")
-    .notNull()
-    .references(() => products.id),
+  /** Nulo cuando el ítem es "otros" (texto libre). */
+  productId: integer("product_id").references(() => products.id),
+  /** Nombre del ítem cuando no viene del catálogo. */
+  descripcion: text("descripcion"),
   cantidad: numeric("cantidad", { precision: 12, scale: 3 }).notNull(),
-  costoUnitario: numeric("costo_unitario", { precision: 14, scale: 2 }).notNull(),
+  /** Presentación de esta compra: kg / unidad / cajon. */
+  presentacion: unidadEnum("presentacion"),
+  costoUnitario: numeric("costo_unitario", { precision: 14, scale: 2 }),
   subtotal: numeric("subtotal", { precision: 14, scale: 2 }).notNull(),
 });
 
@@ -236,6 +249,8 @@ export const stockLots = pgTable("stock_lots", {
     () => productionOrders.id,
   ),
   fechaIngreso: date("fecha_ingreso").notNull(),
+  /** Presentación del lote: kg / unidad / cajon. */
+  presentacion: unidadEnum("presentacion"),
   cantidadInicial: numeric("cantidad_inicial", {
     precision: 12,
     scale: 3,

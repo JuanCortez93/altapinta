@@ -7,7 +7,12 @@ import {
   dailyCloses,
   moneyAccounts,
   moneyMovements,
+  productCategories,
+  products,
+  purchaseItems,
+  purchases,
   settings,
+  suppliers,
   users,
 } from "@/db/schema";
 
@@ -63,6 +68,56 @@ export async function getCuentasInicializadas(): Promise<Set<number>> {
     .from(moneyMovements)
     .where(eq(moneyMovements.categoria, "fondo_inicial"));
   return new Set(rows.map((r) => r.cuentaId));
+}
+
+export async function getProductosParaCompra() {
+  return db
+    .select({
+      id: products.id,
+      nombre: products.nombre,
+      unidad: products.unidad,
+      presentaciones: products.presentaciones,
+      categoria: productCategories.nombre,
+      categoriaOrden: productCategories.orden,
+    })
+    .from(products)
+    .leftJoin(productCategories, eq(productCategories.id, products.categoriaId))
+    .where(eq(products.activo, true))
+    .orderBy(productCategories.orden, products.nombre);
+}
+
+export async function getProveedores() {
+  return db
+    .select({ id: suppliers.id, nombre: suppliers.nombre })
+    .from(suppliers)
+    .where(eq(suppliers.activo, true))
+    .orderBy(suppliers.nombre);
+}
+
+export async function getComprasRecientes(limit = 30) {
+  const rows = await db
+    .select({
+      id: purchases.id,
+      fecha: purchases.fechaCompra,
+      total: purchases.total,
+      proveedor: suppliers.nombre,
+      proveedorTexto: purchases.proveedorTexto,
+      cuenta: moneyAccounts.nombre,
+      items: sql<number>`count(${purchaseItems.id})`,
+    })
+    .from(purchases)
+    .leftJoin(suppliers, eq(suppliers.id, purchases.proveedorId))
+    .leftJoin(moneyAccounts, eq(moneyAccounts.id, purchases.cuentaPagoId))
+    .leftJoin(purchaseItems, eq(purchaseItems.purchaseId, purchases.id))
+    .groupBy(
+      purchases.id,
+      suppliers.nombre,
+      purchases.proveedorTexto,
+      moneyAccounts.nombre,
+    )
+    .orderBy(desc(purchases.fechaCompra), desc(purchases.id))
+    .limit(limit);
+  return rows;
 }
 
 export async function getCierreDelDia(fecha: string) {
