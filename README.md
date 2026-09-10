@@ -26,10 +26,11 @@ hamburguesas y albóndigas de pollo.
 | Sucursales | 1 hoy (**Alta Pinta**). El modelo ya es multisucursal para el futuro. |
 | Balanza | Sin integración. El peso se carga a mano. |
 | Stock | Global por producto, pero con **lotes fechados** (fecha de ingreso + costo real) para rotar lo más viejo primero (FEFO). |
-| Cierre | **Uno por día** (no por turno). Se arma con los movimientos sueltos del día + arqueo. |
+| Cierre | **Uno por turno**: Mañana y Tarde por separado (Domingo, uno solo). Cada cierre lleva **dos campos de venta** (efectivo + transferencia, se tipean juntos) y arqueo. `daily_closes` es único por `(sucursal, fecha, turno)`. |
 | Personas | Lista fija. Seed: Esequiel y Stella (encargado), Graciela (vendedor). |
 | Cuentas de dinero | **Tesoro** (efectivo, la caja del lugar), **Caja chica** (efectivo operativo), **Reserva** (adonde van las transferencias del día; se mueve según rinde el banco). Sin cuenta de provisión de sueldos. |
-| Movimientos | **Ventas y gastos se cargan como ítems sueltos**, en cualquier momento del día (no sólo al cerrar). Cada ítem es efectivo o transferencia (ícono `Banknote` / `ArrowRightLeft`); efectivo pega en Caja chica, transferencia en Reserva. Editables y borrables hasta que se cierra el día. Gastos: Envíos, Uber, Proveedor, Retiro, Otros ("Otros" exige descripción). |
+| Ventas | Se declaran en el cierre del turno, en dos campos (efectivo + transferencia). Efectivo entra a Caja chica, transferencia a Reserva. No se cargan sueltas durante el día. |
+| Gastos | Se cargan sueltos en cualquier momento (`/movimiento`): Envíos, Uber, Proveedor, Retiro, Otros ("Otros" exige descripción), cada uno efectivo o transferencia. Al cerrar un turno, sus gastos del día aparecen con checkbox y tildás cuáles son de ese turno. Editables/borrables hasta que quedan en un cierre. |
 | Arqueo Caja chica | **Opcional y no bloqueante.** Al cerrar se muestra cuánto debería haber; contar la caja es opcional y el cierre se confirma coincida o no. |
 | Puesta en marcha | **Tabula rasa**: no se importa histórico. El día que arranca el uso real se carga el saldo que hay en ese momento en cada cuenta (`/inicio`, movimiento `fondo_inicial`) y de ahí en más todo sale de la app. |
 | Compras | **Multi-renglón** (se acabó cargar producto por producto). Catálogo de productos + "Otro" texto libre. Cada renglón lleva **presentación** cajón / kilo / unidad, sólo cuando el producto admite más de una. Genera `stock_lots` (salvo los "Otro") + un egreso de plata (Caja chica o Reserva). |
@@ -44,14 +45,16 @@ hamburguesas y albóndigas de pollo.
 ### Día normal
 
 ```
-Durante el día  se cargan ventas y gastos apenas ocurren, cada uno marcado
-                efectivo o transferencia → ingreso/egreso de Caja chica o Reserva
-Cierre del día  "Listo": se muestra cuánto debería haber en Caja chica
-                (opcional) contar la caja real → diferencia, sin bloquear
-                barrido Caja chica → Tesoro
-                arqueo de Reserva (opcional, contra el saldo real)
-                se enganchan al cierre todos los movimientos sueltos del día
-Semanal         arqueo Tesoro + inventario completo (Fase 2)
+Durante el día   se cargan los gastos apenas ocurren (efectivo o
+                 transferencia → egreso de Caja chica o Reserva)
+Cierre de turno  turno (mañana / tarde / domingo) + quién cierra
+                 vendido en efectivo + vendido en transferencia (dos campos)
+                 checklist de los gastos del día: se tildan los del turno
+                 "Listo": se muestra cuánto debería haber en Caja chica
+                 (opcional) contar la caja real → diferencia, sin bloquear
+                 barrido Caja chica → Tesoro (normalmente en el cierre de tarde)
+                 arqueo de Reserva (opcional, contra el saldo real)
+Semanal          arqueo Tesoro + inventario completo (Fase 2)
 ```
 
 ### Las dos conciliaciones
@@ -116,7 +119,7 @@ Notas:
 | Fase | Alcance |
 |---|---|
 | **0 — Base** ✅ | Scaffold Next.js + Drizzle + Supabase, esquema completo, seed. |
-| **1 — MVP plata** 🚧 | Login con contraseña compartida · **Movimiento** (cargar venta o gasto en cualquier momento, efectivo/transferencia, editable/borrable) · **Cierre del día** ("Listo" → debería haber $X → arqueo opcional → confirmar) · **Inicio** (saldo inicial de las cuentas, una vez) · **Hoy** (dashboard) · **Cierres** (historial) · **Métricas** (venta por día, promedio por día de semana, gasto por categoría) · **Cuentas** (saldos + movimientos). |
+| **1 — MVP plata** 🚧 | Login con contraseña compartida · **Movimiento** (cargar gastos en cualquier momento, efectivo/transferencia, editable/borrable) · **Cierre por turno** (mañana/tarde/domingo, dos campos de venta, checklist de gastos del turno, arqueo opcional) · **Inicio** (saldo inicial de las cuentas, una vez) · **Hoy** (dashboard) · **Cierres** (historial) · **Métricas** (venta por día, promedio por día de semana, gasto por categoría) · **Cuentas** (saldos + movimientos). |
 | **2 — Stock** 🚧 | **Compra** (multi-renglón, catálogo de productos + "Otro", presentación cajón/kilo/unidad por renglón, genera lotes + egreso de plata) ✅. Falta: salidas registradas, checklist diario a ciegas, inventario completo por zona, reporte de antigüedad. |
 | **3 — Conciliación + producción** | Conciliación venta vs stock, recetas y órdenes de producción, margen por producto. |
 | **4 — Promos + 2ª sucursal** | Promociones + panel de candidatos, alta de la segunda sucursal. |

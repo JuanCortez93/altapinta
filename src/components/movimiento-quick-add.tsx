@@ -3,9 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowDownCircle,
   ArrowRightLeft,
-  ArrowUpCircle,
   Banknote,
   Bike,
   Car,
@@ -36,8 +34,6 @@ const num = (s: string) => {
   const n = Number(String(s).replace(",", "."));
   return Number.isFinite(n) ? n : 0;
 };
-
-type Tipo = "venta" | "gasto";
 
 export function MetodoIcon({
   metodo,
@@ -83,9 +79,9 @@ export function MetodoToggle({
   );
 }
 
+/** Carga rápida de un gasto suelto. Las ventas van en el cierre del turno. */
 export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
   const router = useRouter();
-  const [tipo, setTipo] = useState<Tipo | null>(null);
   const [categoria, setCategoria] = useState<SalidaCategoria | null>(null);
   const [metodo, setMetodo] = useState<Metodo>("efectivo");
   const [detalle, setDetalle] = useState("");
@@ -96,7 +92,6 @@ export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
   const cat = categoria ? catDef(categoria) : null;
 
   function reset() {
-    setTipo(null);
     setCategoria(null);
     setMetodo("efectivo");
     setDetalle("");
@@ -106,14 +101,13 @@ export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
 
   function guardar() {
     setError(null);
-    if (!tipo) return;
+    if (!categoria) return;
     if (num(monto) <= 0) return setError("Poné un monto.");
     if (cat?.requiereDetalle && !detalle.trim())
       return setError("La descripción es obligatoria.");
 
     start(async () => {
       const res = await agregarMovimiento({
-        tipo,
         metodo,
         categoria,
         detalle: detalle.trim(),
@@ -126,70 +120,34 @@ export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
     });
   }
 
-  if (!tipo) {
+  if (!categoria) {
     return (
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => setTipo("venta")}
-          className="flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas py-3 text-sm font-medium text-pos transition-[border-color,background-color] duration-150 hover:border-pos hover:bg-pos-weak active:translate-y-px"
-        >
-          <ArrowDownCircle className="size-5" />
-          Venta
-        </button>
-        <button
-          type="button"
-          onClick={() => setTipo("gasto")}
-          className="flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas py-3 text-sm font-medium text-neg transition-[border-color,background-color] duration-150 hover:border-neg hover:bg-neg-weak active:translate-y-px"
-        >
-          <ArrowUpCircle className="size-5" />
-          Gasto
-        </button>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+        {SALIDA_CATEGORIAS.map((c) => {
+          const Icon = ICONS[c.icon] ?? Receipt;
+          return (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => setCategoria(c.value)}
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-line bg-canvas px-2 py-3 text-xs font-medium text-muted transition-[color,border-color,background-color] duration-150 hover:border-accent hover:bg-accent-weak hover:text-accent active:translate-y-px"
+            >
+              <Icon className="size-5" />
+              {c.label}
+            </button>
+          );
+        })}
       </div>
     );
   }
 
-  if (tipo === "gasto" && !categoria) {
-    return (
-      <div className="flex flex-col gap-2">
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {SALIDA_CATEGORIAS.map((c) => {
-            const Icon = ICONS[c.icon] ?? Receipt;
-            return (
-              <button
-                key={c.value}
-                type="button"
-                onClick={() => setCategoria(c.value)}
-                className="flex flex-col items-center gap-1.5 rounded-xl border border-line bg-canvas px-2 py-3 text-xs font-medium text-muted transition-[color,border-color,background-color] duration-150 hover:border-accent hover:bg-accent-weak hover:text-accent active:translate-y-px"
-              >
-                <Icon className="size-5" />
-                {c.label}
-              </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          onClick={reset}
-          className="self-start text-xs font-medium text-subtle hover:text-ink"
-        >
-          Cancelar
-        </button>
-      </div>
-    );
-  }
-
-  const CatIcon = cat ? (ICONS[cat.icon] ?? Receipt) : null;
+  const CatIcon = cat ? (ICONS[cat.icon] ?? Receipt) : Receipt;
 
   return (
     <div className="rounded-xl border border-line bg-canvas p-3">
       <div className="flex items-center gap-2 text-sm font-medium">
-        {tipo === "venta" ? (
-          <ArrowDownCircle className="size-4 text-pos" />
-        ) : (
-          CatIcon && <CatIcon className="size-4 text-neg" />
-        )}
-        {tipo === "venta" ? "Venta" : cat?.label}
+        <CatIcon className="size-4 text-neg" />
+        {cat?.label}
         <button
           type="button"
           onClick={reset}
@@ -208,7 +166,9 @@ export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
         <input
           autoFocus
           placeholder={
-            cat?.requiereDetalle ? "Descripción (obligatoria)" : "Detalle (opcional)"
+            cat?.requiereDetalle
+              ? "Descripción (obligatoria)"
+              : "Detalle (opcional)"
           }
           value={detalle}
           onChange={(e) => setDetalle(e.target.value)}

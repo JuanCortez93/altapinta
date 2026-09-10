@@ -29,6 +29,13 @@
       "when": 1788900002177,
       "tag": "0003_compras",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789007967188,
+      "tag": "0004_cierre_por_turno",
+      "breakpoints": true
     }
   ]
 }

@@ -2,28 +2,31 @@ import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import {
   getArqueosDelDia,
-  getCierreDelDia,
+  getCierresDelDia,
   getCuentasConSaldo,
   getCuentasInicializadas,
   getGastosDelDia,
-  getMovimientosSueltosDelDia,
 } from "@/lib/queries";
 import { fmtARS, fmtFecha, todayAR } from "@/lib/format";
 import { etiquetaMovimiento } from "@/lib/gastos";
 
 export const dynamic = "force-dynamic";
 
+const LABEL: Record<string, string> = {
+  manana: "Mañana",
+  tarde: "Tarde",
+  domingo: "Domingo",
+};
+
 export default async function HoyPage() {
   const hoy = todayAR();
-  const [cierre, gastos, sueltos, arqueos, cuentas, inicializadas] =
-    await Promise.all([
-      getCierreDelDia(hoy),
-      getGastosDelDia(hoy),
-      getMovimientosSueltosDelDia(hoy),
-      getArqueosDelDia(hoy),
-      getCuentasConSaldo(),
-      getCuentasInicializadas(),
-    ]);
+  const [cierres, gastos, arqueos, cuentas, inicializadas] = await Promise.all([
+    getCierresDelDia(hoy),
+    getGastosDelDia(hoy),
+    getArqueosDelDia(hoy),
+    getCuentasConSaldo(),
+    getCuentasInicializadas(),
+  ]);
 
   const totalGastos = gastos.reduce((a, g) => a + Number(g.monto), 0);
   const porCategoria = new Map<string, number>();
@@ -32,14 +35,15 @@ export default async function HoyPage() {
     porCategoria.set(k, (porCategoria.get(k) ?? 0) + Number(g.monto));
   }
 
-  const ventaEfectivo = cierre ? Number(cierre.ventaEfectivo) : 0;
-  const ventaTransf = cierre ? Number(cierre.ventaTransferencia) : 0;
-
-  const ventasSueltas = sueltos.filter((m) => m.categoria.startsWith("venta_"));
-  const totalVentasSueltas = ventasSueltas.reduce(
-    (a, m) => a + Number(m.monto),
+  const ventaEfectivo = cierres.reduce(
+    (a, c) => a + Number(c.ventaEfectivo),
     0,
   );
+  const ventaTransf = cierres.reduce(
+    (a, c) => a + Number(c.ventaTransferencia),
+    0,
+  );
+  const turnosCerrados = cierres.map((c) => c.turno);
 
   const descuadres = arqueos.filter(
     (a) => Math.abs(Number(a.diferencia)) >= 0.01,
@@ -54,13 +58,11 @@ export default async function HoyPage() {
         </div>
         <div className="flex gap-2">
           <Link href="/movimiento" className="btn btn-secondary h-10 px-3 text-sm">
-            Movimiento
+            Gasto
           </Link>
-          {!cierre && (
-            <Link href="/cierre" className="btn btn-primary h-10 px-4 text-sm">
-              Cerrar el día
-            </Link>
-          )}
+          <Link href="/cierre" className="btn btn-primary h-10 px-4 text-sm">
+            Cerrar turno
+          </Link>
         </div>
       </header>
 
@@ -79,33 +81,34 @@ export default async function HoyPage() {
       <section className="card p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-sm font-medium text-muted">Ventas del día</h2>
-          {cierre ? (
-            <span className="tnum text-lg font-semibold">
-              {fmtARS(ventaEfectivo + ventaTransf)}
-            </span>
-          ) : (
-            <span className="rounded-md bg-warn-weak px-2 py-0.5 text-xs font-medium text-warn">
-              sin cerrar
-            </span>
-          )}
+          <span className="tnum text-lg font-semibold">
+            {fmtARS(ventaEfectivo + ventaTransf)}
+          </span>
         </div>
-        {cierre ? (
+        {cierres.length > 0 ? (
           <div className="mt-3 grid grid-cols-2 gap-3">
             <MiniStat label="Efectivo" value={fmtARS(ventaEfectivo)} />
             <MiniStat label="Transferencia" value={fmtARS(ventaTransf)} />
           </div>
         ) : (
-          ventasSueltas.length > 0 && (
-            <p className="mt-2 text-sm text-subtle">
-              Cargado hasta ahora:{" "}
-              <span className="tnum font-medium text-ink">
-                {fmtARS(totalVentasSueltas)}
-              </span>{" "}
-              en {ventasSueltas.length}{" "}
-              {ventasSueltas.length === 1 ? "venta" : "ventas"}.
-            </p>
-          )
+          <p className="mt-2 text-sm text-subtle">Ningún turno cerrado todavía.</p>
         )}
+        <div className="mt-3 flex gap-1.5">
+          {(["manana", "tarde", "domingo"] as const).map((t) => (
+            <span
+              key={t}
+              className={
+                "rounded-md px-2 py-1 text-xs font-medium " +
+                (turnosCerrados.includes(t)
+                  ? "bg-pos-weak text-pos"
+                  : "bg-surface-2 text-subtle")
+              }
+            >
+              {LABEL[t]}
+              {turnosCerrados.includes(t) ? " ✓" : ""}
+            </span>
+          ))}
+        </div>
       </section>
 
       {descuadres.length > 0 && (
@@ -149,7 +152,7 @@ export default async function HoyPage() {
             <p className="text-sm text-subtle">
               Nada cargado.{" "}
               <Link href="/movimiento" className="font-medium text-accent">
-                Cargar un movimiento
+                Cargar un gasto
               </Link>
             </p>
           ) : (

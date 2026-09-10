@@ -6,12 +6,7 @@ import { db } from "@/db";
 import { moneyAccounts, moneyMovements } from "@/db/schema";
 import { assertAuthed } from "@/lib/session";
 import { getBranch } from "@/lib/queries";
-import {
-  categoriaDeVenta,
-  movimientoDeGasto,
-  type Metodo,
-  type SalidaCategoria,
-} from "@/lib/gastos";
+import { movimientoDeGasto, type Metodo, type SalidaCategoria } from "@/lib/gastos";
 
 const money = (n: number) => n.toFixed(2);
 
@@ -28,10 +23,10 @@ async function cuentaPorMetodo(metodo: Metodo) {
   return metodo === "efectivo" ? cajaChica : reserva;
 }
 
-export interface MovimientoInput {
-  tipo: "venta" | "gasto";
+/** Un gasto suelto del día (las ventas se cargan en el cierre del turno). */
+export interface GastoInput {
   metodo: Metodo;
-  categoria: SalidaCategoria | null;
+  categoria: SalidaCategoria;
   detalle: string;
   monto: number;
 }
@@ -40,19 +35,17 @@ export type MovimientoResult =
   | { ok: true; id: number }
   | { ok: false; error: string };
 
-function validar(p: MovimientoInput): string | null {
+function validar(p: GastoInput): string | null {
   if (!Number.isFinite(p.monto) || p.monto <= 0)
     return "El monto tiene que ser mayor a cero.";
-  if (p.tipo === "gasto") {
-    if (!p.categoria) return "Elegí una categoría.";
-    if (p.categoria === "otros" && !p.detalle.trim())
-      return "En «Otros» la descripción es obligatoria.";
-  }
+  if (!p.categoria) return "Elegí una categoría.";
+  if (p.categoria === "otros" && !p.detalle.trim())
+    return "En «Otros» la descripción es obligatoria.";
   return null;
 }
 
 export async function agregarMovimiento(
-  p: MovimientoInput,
+  p: GastoInput,
 ): Promise<MovimientoResult> {
   await assertAuthed();
 
@@ -65,17 +58,14 @@ export async function agregarMovimiento(
   const cuenta = await cuentaPorMetodo(p.metodo);
   if (!cuenta) return { ok: false, error: "Falta la cuenta. Corré el seed." };
 
-  const { categoria, gastoCategoria } =
-    p.tipo === "venta"
-      ? { categoria: categoriaDeVenta(p.metodo), gastoCategoria: null }
-      : movimientoDeGasto(p.categoria!);
+  const { categoria, gastoCategoria } = movimientoDeGasto(p.categoria);
 
   const [row] = await db
     .insert(moneyMovements)
     .values({
       branchId: branch.id,
       fecha: hoyISO(),
-      tipo: p.tipo === "venta" ? "ingreso" : "egreso",
+      tipo: "egreso",
       categoria,
       gastoCategoria,
       cuentaId: cuenta.id,
@@ -90,7 +80,7 @@ export async function agregarMovimiento(
 
 export async function editarMovimiento(
   id: number,
-  p: MovimientoInput,
+  p: GastoInput,
 ): Promise<MovimientoResult> {
   await assertAuthed();
 
@@ -103,20 +93,17 @@ export async function editarMovimiento(
     .where(eq(moneyMovements.id, id));
   if (!mov) return { ok: false, error: "No existe." };
   if (mov.cierreId)
-    return { ok: false, error: "Ese movimiento ya quedó en un cierre." };
+    return { ok: false, error: "Ese gasto ya quedó en un cierre." };
 
   const cuenta = await cuentaPorMetodo(p.metodo);
   if (!cuenta) return { ok: false, error: "Falta la cuenta. Corré el seed." };
 
-  const { categoria, gastoCategoria } =
-    p.tipo === "venta"
-      ? { categoria: categoriaDeVenta(p.metodo), gastoCategoria: null }
-      : movimientoDeGasto(p.categoria!);
+  const { categoria, gastoCategoria } = movimientoDeGasto(p.categoria);
 
   await db
     .update(moneyMovements)
     .set({
-      tipo: p.tipo === "venta" ? "ingreso" : "egreso",
+      tipo: "egreso",
       categoria,
       gastoCategoria,
       cuentaId: cuenta.id,
@@ -137,7 +124,7 @@ export async function borrarMovimiento(id: number): Promise<MovimientoResult> {
     .where(eq(moneyMovements.id, id));
   if (!mov) return { ok: false, error: "No existe." };
   if (mov.cierreId)
-    return { ok: false, error: "Ese movimiento ya quedó en un cierre." };
+    return { ok: false, error: "Ese gasto ya quedó en un cierre." };
 
   await db.delete(moneyMovements).where(eq(moneyMovements.id, id));
   revalidar();

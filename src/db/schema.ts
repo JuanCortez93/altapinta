@@ -57,9 +57,9 @@ export const salidaMotivoEnum = pgEnum("salida_motivo", [
 /** Origen de un registro: cargado en la app, o importado del histórico viejo. */
 export const origenEnum = pgEnum("origen", ["app", "importado"]);
 
-// Enums legacy: ya no se usan (el cierre pasó a ser diario), pero se dejan
-// declarados para que drizzle-kit no los trate como renombrados de `origen`.
+/** Turno del cierre. `domingo` = cierre único del domingo. */
 export const turnoEnum = pgEnum("turno", ["manana", "tarde", "domingo"]);
+// Legacy: sin uso, se deja declarado para no confundir a drizzle-kit.
 export const turnoEstadoEnum = pgEnum("turno_estado", ["abierto", "cerrado"]);
 
 export const cuentaTipoEnum = pgEnum("cuenta_tipo", ["efectivo", "digital"]);
@@ -372,7 +372,9 @@ export const dailyCloses = pgTable(
       .notNull()
       .references(() => branches.id),
     fecha: date("fecha").notNull(),
-    /** Venta bruta del día, antes de gastos. */
+    /** Turno al que corresponde este cierre. */
+    turno: turnoEnum("turno").notNull(),
+    /** Venta bruta del turno, antes de gastos. */
     ventaEfectivo: numeric("venta_efectivo", { precision: 14, scale: 2 })
       .notNull()
       .default("0"),
@@ -403,7 +405,13 @@ export const dailyCloses = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("daily_closes_branch_fecha").on(t.branchId, t.fecha)],
+  (t) => [
+    uniqueIndex("daily_closes_branch_fecha_turno").on(
+      t.branchId,
+      t.fecha,
+      t.turno,
+    ),
+  ],
 );
 
 /**

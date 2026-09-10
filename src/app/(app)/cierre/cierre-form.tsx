@@ -6,12 +6,18 @@ import { useRouter } from "next/navigation";
 import { fmtARS, todayAR } from "@/lib/format";
 import { MovimientoQuickAdd } from "@/components/movimiento-quick-add";
 import { MovimientoLista, type MovimientoRow } from "@/components/movimiento-lista";
-import { registrarCierreDia, type CierreResult } from "./actions";
+import { registrarCierreTurno, type CierreResult, type Turno } from "./actions";
 
 const field =
   "h-11 w-full rounded-lg border border-line bg-canvas px-3 text-base outline-none transition-colors focus:border-accent";
 const lbl = "text-sm font-medium text-muted";
 const section = "card p-4";
+
+const LABEL: Record<Turno, string> = {
+  manana: "Mañana",
+  tarde: "Tarde",
+  domingo: "Domingo",
+};
 
 const num = (s: string) => {
   const n = Number(String(s).replace(",", "."));
@@ -20,14 +26,26 @@ const num = (s: string) => {
 
 type Props = {
   usuarios: { id: number; nombre: string }[];
-  items: MovimientoRow[];
+  gastos: MovimientoRow[];
   cajaChicaActual: number;
+  turnosDisponibles: Turno[];
 };
 
-export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
+export function CierreForm({
+  usuarios,
+  gastos,
+  cajaChicaActual,
+  turnosDisponibles,
+}: Props) {
   const router = useRouter();
   const [stage, setStage] = useState<"items" | "confirm">("items");
+  const [turno, setTurno] = useState<Turno>(turnosDisponibles[0]);
   const [cerradoPorId, setCerradoPorId] = useState("");
+  const [ventaEfectivo, setVentaEfectivo] = useState("");
+  const [ventaTransferencia, setVentaTransferencia] = useState("");
+  const [gastoIds, setGastoIds] = useState<Set<number>>(
+    () => new Set(gastos.map((g) => g.id)),
+  );
   const [efectivoContado, setEfectivoContado] = useState("");
   const [efectivoATesoro, setEfectivoATesoro] = useState("");
   const [saldoReservaApp, setSaldoReservaApp] = useState("");
@@ -39,32 +57,41 @@ export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
   );
   const [pending, start] = useTransition();
 
-  const totales = useMemo(() => {
-    let ventas = 0;
-    let gastos = 0;
-    for (const it of items) {
-      const monto = Number(it.monto);
-      if (it.categoria.startsWith("venta_")) ventas += monto;
-      else gastos += monto;
-    }
-    return { ventas, gastos, neto: ventas - gastos };
-  }, [items]);
+  const gastosDelTurno = useMemo(
+    () =>
+      gastos
+        .filter((g) => gastoIds.has(g.id))
+        .reduce((a, g) => a + Number(g.monto), 0),
+    [gastos, gastoIds],
+  );
+  const ventas = num(ventaEfectivo) + num(ventaTransferencia);
+  const neto = ventas - gastosDelTurno;
 
-  const diferenciaPreview =
-    efectivoContado.trim() !== "" ? num(efectivoContado) - cajaChicaActual : null;
+  function toggleGasto(id: number) {
+    setGastoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function irAConfirmar() {
     setError(null);
-    if (!cerradoPorId) return setError("Elegí quién cierra el día.");
+    if (!cerradoPorId) return setError("Elegí quién cierra el turno.");
     setStage("confirm");
   }
 
   function confirmar() {
     setError(null);
     start(async () => {
-      const res = await registrarCierreDia({
+      const res = await registrarCierreTurno({
         fecha: todayAR(),
+        turno,
         cerradoPorId: Number(cerradoPorId),
+        ventaEfectivo: num(ventaEfectivo),
+        ventaTransferencia: num(ventaTransferencia),
+        gastoIds: [...gastoIds],
         efectivoContado:
           efectivoContado.trim() !== "" ? num(efectivoContado) : null,
         efectivoATesoro: num(efectivoATesoro),
@@ -80,13 +107,17 @@ export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
   if (result) return <Resultado result={result} />;
 
   if (stage === "confirm") {
+    const dif =
+      efectivoContado.trim() !== ""
+        ? num(efectivoContado) - cajaChicaActual
+        : null;
     return (
       <div className="flex flex-col gap-4">
         <section className={section}>
           <h2 className="mb-1 font-medium">Debería haber en Caja chica</h2>
           <p className="tnum text-2xl font-semibold">{fmtARS(cajaChicaActual)}</p>
           <p className="mt-1 text-xs text-subtle">
-            Ventas del día {fmtARS(totales.ventas)} − Gastos {fmtARS(totales.gastos)}
+            Ventas del turno {fmtARS(ventas)} − Gastos {fmtARS(gastosDelTurno)}
           </p>
         </section>
 
@@ -99,24 +130,19 @@ export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
               onChange={setEfectivoContado}
             />
           </label>
-          {diferenciaPreview != null && (
+          {dif != null && (
             <p
               className={
                 "mt-2 text-sm font-medium " +
-                (Math.abs(diferenciaPreview) < 0.01
-                  ? "text-pos"
-                  : "text-neg")
+                (Math.abs(dif) < 0.01 ? "text-pos" : "text-neg")
               }
             >
-              {Math.abs(diferenciaPreview) < 0.01
+              {Math.abs(dif) < 0.01
                 ? "Coincide."
-                : (diferenciaPreview > 0 ? "Sobra " : "Falta ") +
-                  fmtARS(Math.abs(diferenciaPreview))}
+                : (dif > 0 ? "Sobra " : "Falta ") + fmtARS(Math.abs(dif))}
             </p>
           )}
-          <p className="mt-1 text-xs text-subtle">
-            Cierra igual, coincida o no.
-          </p>
+          <p className="mt-1 text-xs text-subtle">Cierra igual, coincida o no.</p>
         </section>
 
         <section className={section}>
@@ -169,7 +195,7 @@ export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
             disabled={pending}
             className="btn btn-primary h-12 flex-[2] text-base"
           >
-            {pending ? "Guardando…" : "Confirmar y cerrar el día"}
+            {pending ? "Guardando…" : `Confirmar cierre de ${LABEL[turno].toLowerCase()}`}
           </button>
         </div>
       </div>
@@ -179,42 +205,105 @@ export function CierreForm({ usuarios, items, cajaChicaActual }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <section className={section}>
-        <label className="flex flex-col gap-1.5">
-          <span className={lbl}>Quién cierra</span>
-          <select
-            value={cerradoPorId}
-            onChange={(e) => setCerradoPorId(e.target.value)}
-            className={field}
-          >
-            <option value="">Elegir…</option>
-            {usuarios.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <span className={lbl}>Turno</span>
+            <div className="flex gap-1.5">
+              {turnosDisponibles.map((t) => {
+                const active = turno === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTurno(t)}
+                    aria-pressed={active}
+                    className={
+                      "h-11 flex-1 rounded-lg border text-sm font-medium transition-[color,background-color,border-color] duration-150 active:translate-y-px " +
+                      (active
+                        ? "border-accent bg-accent-weak text-accent"
+                        : "border-line text-muted hover:border-line-strong hover:text-ink")
+                    }
+                  >
+                    {LABEL[t]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <label className="flex flex-col gap-1.5">
+            <span className={lbl}>Quién cierra</span>
+            <select
+              value={cerradoPorId}
+              onChange={(e) => setCerradoPorId(e.target.value)}
+              className={field}
+            >
+              <option value="">Elegir…</option>
+              {usuarios.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </section>
 
       <section className={section}>
-        <div className="mb-3">
-          <h2 className="font-medium">Ventas y gastos del día</h2>
-          <p className="text-xs text-subtle">
-            Marcá cada uno como efectivo o transferencia.
-          </p>
+        <h2 className="mb-3 font-medium">Ventas del turno</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <label className={lbl} htmlFor="v-ef">
+              Vendido en efectivo
+            </label>
+            <Money id="v-ef" value={ventaEfectivo} onChange={setVentaEfectivo} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={lbl} htmlFor="v-tr">
+              Vendido en transferencia
+            </label>
+            <Money
+              id="v-tr"
+              value={ventaTransferencia}
+              onChange={setVentaTransferencia}
+            />
+          </div>
         </div>
-        <div className="mb-3">
-          <MovimientoQuickAdd onAdded={() => router.refresh()} />
+        <p className="mt-3 text-sm text-subtle">
+          Total del turno{" "}
+          <span className="tnum font-semibold text-ink">{fmtARS(ventas)}</span>
+        </p>
+      </section>
+
+      <section className={section}>
+        <div className="mb-1 flex items-baseline justify-between">
+          <h2 className="font-medium">Gastos del turno</h2>
+          <span className="tnum text-sm text-subtle">
+            {fmtARS(gastosDelTurno)}
+          </span>
         </div>
-        <MovimientoLista items={items} />
+        <p className="mb-3 text-xs text-subtle">
+          Tildá los gastos del día que son de este turno.
+        </p>
+        <MovimientoLista
+          items={gastos}
+          seleccion={{ checked: gastoIds, onToggle: toggleGasto }}
+          vacio="No hay gastos cargados hoy."
+        />
+        <div className="mt-3">
+          <MovimientoQuickAdd
+            onAdded={() => {
+              router.refresh();
+            }}
+          />
+        </div>
       </section>
 
       <section className="rounded-2xl border border-line bg-surface-2 p-4">
         <dl className="flex flex-col gap-1.5 text-sm">
-          <Linea t="Ventas" v={fmtARS(totales.ventas)} />
-          <Linea t="Gastos" v={"− " + fmtARS(totales.gastos)} />
+          <Linea t="Ventas" v={fmtARS(ventas)} />
+          <Linea t="Gastos del turno" v={"− " + fmtARS(gastosDelTurno)} />
           <div className="my-1 border-t border-line" />
-          <Linea t="Neto" v={fmtARS(totales.neto)} fuerte />
+          <Linea t="Neto" v={fmtARS(neto)} fuerte />
         </dl>
       </section>
 
@@ -275,14 +364,14 @@ function Resultado({
 }: {
   result: Extract<CierreResult, { ok: true }>;
 }) {
-  const { arqueoCaja, arqueoReserva, ventaEfectivo, ventaTransferencia } =
+  const { arqueoCaja, arqueoReserva, ventaEfectivo, ventaTransferencia, turno } =
     result;
   return (
     <div className="flex flex-col gap-4">
       <section className="card p-5">
         <div className="flex items-center gap-1.5 text-pos">
           <span className="size-2 rounded-full bg-pos" />
-          <h2 className="font-semibold">Día cerrado</h2>
+          <h2 className="font-semibold">Cierre de {LABEL[turno].toLowerCase()} listo</h2>
         </div>
         <p className="mt-2 text-sm text-subtle">
           Ventas:{" "}
@@ -301,8 +390,8 @@ function Resultado({
         <Link href="/" className="btn btn-primary h-11 flex-1 text-sm">
           Ver el día
         </Link>
-        <Link href="/metricas" className="btn btn-secondary h-11 flex-1 text-sm">
-          Métricas
+        <Link href="/cierre" className="btn btn-secondary h-11 flex-1 text-sm">
+          Otro turno
         </Link>
       </div>
     </div>

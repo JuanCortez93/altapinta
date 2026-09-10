@@ -120,32 +120,34 @@ export async function getComprasRecientes(limit = 30) {
   return rows;
 }
 
-export async function getCierreDelDia(fecha: string) {
-  const [c] = await db
+/** Los cierres de una fecha (hasta dos: mañana y tarde, o uno el domingo). */
+export async function getCierresDelDia(fecha: string) {
+  return db
     .select()
     .from(dailyCloses)
-    .where(eq(dailyCloses.fecha, fecha));
-  return c ?? null;
+    .where(eq(dailyCloses.fecha, fecha))
+    .orderBy(dailyCloses.id);
 }
 
-export async function cierreYaExiste(branchId: number, fecha: string) {
+export async function cierreYaExiste(
+  branchId: number,
+  fecha: string,
+  turno: "manana" | "tarde" | "domingo",
+) {
   const [row] = await db
     .select({ id: dailyCloses.id })
     .from(dailyCloses)
     .where(
-      and(eq(dailyCloses.branchId, branchId), eq(dailyCloses.fecha, fecha)),
+      and(
+        eq(dailyCloses.branchId, branchId),
+        eq(dailyCloses.fecha, fecha),
+        eq(dailyCloses.turno, turno),
+      ),
     );
   return !!row;
 }
 
 const CATS_SALIDA = ["gasto", "compra", "retiro"] as const;
-const CATS_MOVIMIENTO = [
-  "venta_efectivo",
-  "venta_transferencia",
-  "gasto",
-  "compra",
-  "retiro",
-] as const;
 
 /** Gastos / compras / retiros cargados para una fecha (para el dashboard). */
 export async function getGastosDelDia(fecha: string) {
@@ -172,8 +174,8 @@ export async function getGastosDelDia(fecha: string) {
 }
 
 /**
- * Ventas y gastos sueltos de una fecha (todavía no enganchados a un cierre).
- * Editables/borrables mientras el día no se cerró.
+ * Gastos sueltos de una fecha (todavía no enganchados a un cierre de turno).
+ * Editables/borrables hasta que se cierra el turno que los incluye.
  */
 export async function getMovimientosSueltosDelDia(fecha: string) {
   return db
@@ -193,7 +195,7 @@ export async function getMovimientosSueltosDelDia(fecha: string) {
       and(
         eq(moneyMovements.fecha, fecha),
         isNull(moneyMovements.cierreId),
-        inArray(moneyMovements.categoria, [...CATS_MOVIMIENTO]),
+        inArray(moneyMovements.categoria, [...CATS_SALIDA]),
       ),
     )
     .orderBy(moneyMovements.id);
@@ -220,6 +222,7 @@ export async function getCierresRecientes(limit = 60) {
     .select({
       id: dailyCloses.id,
       fecha: dailyCloses.fecha,
+      turno: dailyCloses.turno,
       ventaEfectivo: dailyCloses.ventaEfectivo,
       ventaTransferencia: dailyCloses.ventaTransferencia,
       diferenciaEfectivo: dailyCloses.diferenciaEfectivo,
@@ -250,17 +253,18 @@ export async function getMovimientosRecientes(limit = 60) {
     .limit(limit);
 }
 
-/** Ventas por día para las métricas. */
+/** Ventas por día para las métricas (suma de los turnos de cada fecha). */
 export async function getVentasPorDia(desde: string) {
   return db
     .select({
       fecha: dailyCloses.fecha,
-      efectivo: dailyCloses.ventaEfectivo,
-      transferencia: dailyCloses.ventaTransferencia,
-      diferencia: dailyCloses.diferenciaEfectivo,
+      efectivo: sql<string>`sum(${dailyCloses.ventaEfectivo})`,
+      transferencia: sql<string>`sum(${dailyCloses.ventaTransferencia})`,
+      diferencia: sql<string>`sum(coalesce(${dailyCloses.diferenciaEfectivo}, 0))`,
     })
     .from(dailyCloses)
     .where(gte(dailyCloses.fecha, desde))
+    .groupBy(dailyCloses.fecha)
     .orderBy(desc(dailyCloses.fecha));
 }
 

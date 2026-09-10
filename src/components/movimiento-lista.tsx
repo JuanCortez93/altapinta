@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowDownCircle,
   Bike,
   Car,
   HandCoins,
@@ -43,7 +42,6 @@ const num = (s: string) => {
 
 export type MovimientoRow = {
   id: number;
-  tipo: string;
   categoria: string;
   gastoCategoria: string | null;
   monto: string;
@@ -52,21 +50,32 @@ export type MovimientoRow = {
   cierreId: number | null;
 };
 
-export function MovimientoLista({ items }: { items: MovimientoRow[] }) {
+type Seleccion = { checked: Set<number>; onToggle: (id: number) => void };
+
+export function MovimientoLista({
+  items,
+  seleccion,
+  vacio = "Nada cargado todavía hoy.",
+}: {
+  items: MovimientoRow[];
+  seleccion?: Seleccion;
+  vacio?: string;
+}) {
   const [editando, setEditando] = useState<number | null>(null);
 
   if (items.length === 0)
-    return <p className="text-sm text-subtle">Nada cargado todavía hoy.</p>;
+    return <p className="text-sm text-subtle">{vacio}</p>;
 
   return (
     <ul className="divide-y divide-line">
       {items.map((m) =>
-        editando === m.id ? (
+        !seleccion && editando === m.id ? (
           <EditRow key={m.id} m={m} onDone={() => setEditando(null)} />
         ) : (
           <ViewRow
             key={m.id}
             m={m}
+            seleccion={seleccion}
             onEditar={() => setEditando(m.id)}
           />
         ),
@@ -75,18 +84,35 @@ export function MovimientoLista({ items }: { items: MovimientoRow[] }) {
   );
 }
 
-function ViewRow({ m, onEditar }: { m: MovimientoRow; onEditar: () => void }) {
+function ViewRow({
+  m,
+  seleccion,
+  onEditar,
+}: {
+  m: MovimientoRow;
+  seleccion?: Seleccion;
+  onEditar: () => void;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const esVenta = m.categoria.startsWith("venta_");
   const metodo = metodoDeCuenta(m.cuenta);
-  const catIcon = esVenta ? null : (catDef(m.gastoCategoria ?? m.categoria)?.icon ?? "Receipt");
-  const Icon: LucideIcon = esVenta ? ArrowDownCircle : (ICONS[catIcon ?? "Receipt"] ?? Receipt);
+  const iconKey = catDef(m.gastoCategoria ?? m.categoria)?.icon ?? "Receipt";
+  const Icon: LucideIcon = ICONS[iconKey] ?? Receipt;
   const editable = !m.cierreId;
 
   return (
     <li className="flex items-center gap-3 py-2.5 text-sm">
-      <Icon className={"size-4 shrink-0 " + (esVenta ? "text-pos" : "text-neg")} />
+      {seleccion ? (
+        <input
+          type="checkbox"
+          checked={seleccion.checked.has(m.id)}
+          onChange={() => seleccion.onToggle(m.id)}
+          className="size-4 shrink-0 accent-[var(--accent)]"
+          aria-label="Es de este turno"
+        />
+      ) : (
+        <Icon className="size-4 shrink-0 text-neg" />
+      )}
       <div className="min-w-0 flex-1">
         <div className="truncate">
           {m.descripcion || etiquetaMovimiento(m.categoria, m.gastoCategoria)}
@@ -97,12 +123,10 @@ function ViewRow({ m, onEditar }: { m: MovimientoRow; onEditar: () => void }) {
           {metodo === "efectivo" ? "Efectivo" : "Transferencia"}
         </div>
       </div>
-      <span
-        className={"tnum shrink-0 font-medium " + (esVenta ? "text-pos" : "text-neg")}
-      >
-        {esVenta ? "+" : "−"} {fmtARS(Number(m.monto))}
+      <span className="tnum shrink-0 font-medium text-neg">
+        − {fmtARS(Number(m.monto))}
       </span>
-      {editable && (
+      {!seleccion && editable && (
         <div className="flex shrink-0 gap-0.5">
           <button
             type="button"
@@ -134,10 +158,13 @@ function ViewRow({ m, onEditar }: { m: MovimientoRow; onEditar: () => void }) {
 
 function EditRow({ m, onDone }: { m: MovimientoRow; onDone: () => void }) {
   const router = useRouter();
-  const esVenta = m.categoria.startsWith("venta_");
   const [categoria, setCategoria] = useState<SalidaCategoria>(
     (m.gastoCategoria as SalidaCategoria) ??
-      (m.categoria === "compra" ? "proveedor" : m.categoria === "retiro" ? "retiro" : "otros"),
+      (m.categoria === "compra"
+        ? "proveedor"
+        : m.categoria === "retiro"
+          ? "retiro"
+          : "otros"),
   );
   const [metodo, setMetodo] = useState<Metodo>(metodoDeCuenta(m.cuenta));
   const [detalle, setDetalle] = useState(m.descripcion ?? "");
@@ -150,14 +177,13 @@ function EditRow({ m, onDone }: { m: MovimientoRow; onDone: () => void }) {
   function guardar() {
     setError(null);
     if (num(monto) <= 0) return setError("Poné un monto.");
-    if (!esVenta && cat?.requiereDetalle && !detalle.trim())
+    if (cat?.requiereDetalle && !detalle.trim())
       return setError("La descripción es obligatoria.");
 
     start(async () => {
       const res = await editarMovimiento(m.id, {
-        tipo: esVenta ? "venta" : "gasto",
         metodo,
-        categoria: esVenta ? null : categoria,
+        categoria,
         detalle: detalle.trim(),
         monto: num(monto),
       });
@@ -169,19 +195,17 @@ function EditRow({ m, onDone }: { m: MovimientoRow; onDone: () => void }) {
 
   return (
     <li className="rounded-xl border border-accent bg-accent-weak p-3 text-sm">
-      {!esVenta && (
-        <select
-          value={categoria}
-          onChange={(e) => setCategoria(e.target.value as SalidaCategoria)}
-          className="mb-2 h-9 w-full rounded-md border border-line bg-surface px-2 text-sm"
-        >
-          {SALIDA_CATEGORIAS.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      )}
+      <select
+        value={categoria}
+        onChange={(e) => setCategoria(e.target.value as SalidaCategoria)}
+        className="mb-2 h-9 w-full rounded-md border border-line bg-surface px-2 text-sm"
+      >
+        {SALIDA_CATEGORIAS.map((c) => (
+          <option key={c.value} value={c.value}>
+            {c.label}
+          </option>
+        ))}
+      </select>
       <MetodoToggle value={metodo} onChange={setMetodo} />
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <input

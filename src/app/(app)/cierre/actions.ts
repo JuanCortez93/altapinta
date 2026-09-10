@@ -9,17 +9,17 @@ import { cierreYaExiste, getBranch } from "@/lib/queries";
 
 const money = (n: number) => n.toFixed(2);
 
-const CATS_MOVIMIENTO = [
-  "venta_efectivo",
-  "venta_transferencia",
-  "gasto",
-  "compra",
-  "retiro",
-] as const;
+export type Turno = "manana" | "tarde" | "domingo";
 
 export interface CierrePayload {
   fecha: string;
+  turno: Turno;
   cerradoPorId: number;
+  /** Venta bruta del turno. */
+  ventaEfectivo: number;
+  ventaTransferencia: number;
+  /** ids de gastos sueltos que corresponden a este turno. */
+  gastoIds: number[];
   /** Conteo físico de Caja chica. Opcional: si no se carga, no se guarda arqueo. */
   efectivoContado: number | null;
   efectivoATesoro: number;
@@ -37,6 +37,7 @@ export type CierreResult =
   | {
       ok: true;
       cierreId: number;
+      turno: Turno;
       ventaEfectivo: number;
       ventaTransferencia: number;
       cajaTeorico: number;
@@ -45,23 +46,40 @@ export type CierreResult =
     }
   | { ok: false; error: string };
 
-export async function registrarCierreDia(
+const LABEL_TURNO: Record<Turno, string> = {
+  manana: "mañana",
+  tarde: "tarde",
+  domingo: "domingo",
+};
+
+export async function registrarCierreTurno(
   p: CierrePayload,
 ): Promise<CierreResult> {
   await assertAuthed();
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(p.fecha))
     return { ok: false, error: "Fecha inválida." };
-  if (!p.cerradoPorId) return { ok: false, error: "Elegí quién cierra el día." };
-  if (p.efectivoContado != null && (!Number.isFinite(p.efectivoContado) || p.efectivoContado < 0))
+  if (!LABEL_TURNO[p.turno]) return { ok: false, error: "Elegí el turno." };
+  if (!p.cerradoPorId) return { ok: false, error: "Elegí quién cierra el turno." };
+  for (const v of [p.ventaEfectivo, p.ventaTransferencia]) {
+    if (!Number.isFinite(v) || v < 0)
+      return { ok: false, error: "Las ventas tienen un monto inválido." };
+  }
+  if (
+    p.efectivoContado != null &&
+    (!Number.isFinite(p.efectivoContado) || p.efectivoContado < 0)
+  )
     return { ok: false, error: "El efectivo contado es inválido." };
   if (!Number.isFinite(p.efectivoATesoro) || p.efectivoATesoro < 0)
     return { ok: false, error: "El monto a pasar al Tesoro es inválido." };
 
   const branch = await getBranch();
   if (!branch) return { ok: false, error: "No hay sucursal cargada." };
-  if (await cierreYaExiste(branch.id, p.fecha))
-    return { ok: false, error: "Ya hay un cierre cargado para esa fecha." };
+  if (await cierreYaExiste(branch.id, p.fecha, p.turno))
+    return {
+      ok: false,
+      error: `Ya hay un cierre de ${LABEL_TURNO[p.turno]} para esa fecha.`,
+    };
 
   const cuentas = await db.select().from(moneyAccounts);
   const cajaChica = cuentas.find((c) => c.esCajaChica);
@@ -72,32 +90,14 @@ export async function registrarCierreDia(
 
   try {
     const result = await db.transaction(async (tx) => {
-      const sueltos = await tx
-        .select()
-        .from(moneyMovements)
-        .where(
-          and(
-            eq(moneyMovements.fecha, p.fecha),
-            isNull(moneyMovements.cierreId),
-            inArray(moneyMovements.categoria, [...CATS_MOVIMIENTO]),
-          ),
-        );
-
-      const sumaDe = (cat: string) =>
-        sueltos
-          .filter((m) => m.categoria === cat)
-          .reduce((a, m) => a + Number(m.monto), 0);
-
-      const ventaEfectivo = sumaDe("venta_efectivo");
-      const ventaTransferencia = sumaDe("venta_transferencia");
-
       const [cierre] = await tx
         .insert(dailyCloses)
         .values({
           branchId: branch.id,
           fecha: p.fecha,
-          ventaEfectivo: money(ventaEfectivo),
-          ventaTransferencia: money(ventaTransferencia),
+          turno: p.turno,
+          ventaEfectivo: money(p.ventaEfectivo),
+          ventaTransferencia: money(p.ventaTransferencia),
           efectivoContado:
             p.efectivoContado != null ? money(p.efectivoContado) : null,
           efectivoATesoro: money(p.efectivoATesoro),
@@ -109,17 +109,47 @@ export async function registrarCierreDia(
         })
         .returning();
 
-      // Enganchar al cierre todo lo suelto del día (ventas y gastos).
-      await tx
-        .update(moneyMovements)
-        .set({ cierreId: cierre.id })
-        .where(
-          and(
-            eq(moneyMovements.fecha, p.fecha),
-            isNull(moneyMovements.cierreId),
-            inArray(moneyMovements.categoria, [...CATS_MOVIMIENTO]),
-          ),
-        );
+      // Ventas del turno, como movimientos enganchados al cierre.
+      const ventas: (typeof moneyMovements.$inferInsert)[] = [];
+      if (p.ventaEfectivo > 0)
+        ventas.push({
+          branchId: branch.id,
+          fecha: p.fecha,
+          tipo: "ingreso",
+          categoria: "venta_efectivo",
+          cuentaId: cajaChica.id,
+          monto: money(p.ventaEfectivo),
+          cierreId: cierre.id,
+          descripcion: `Ventas ${LABEL_TURNO[p.turno]} en efectivo`,
+          usuarioId: p.cerradoPorId,
+        });
+      if (p.ventaTransferencia > 0)
+        ventas.push({
+          branchId: branch.id,
+          fecha: p.fecha,
+          tipo: "ingreso",
+          categoria: "venta_transferencia",
+          cuentaId: reserva.id,
+          monto: money(p.ventaTransferencia),
+          cierreId: cierre.id,
+          descripcion: `Ventas ${LABEL_TURNO[p.turno]} por transferencia`,
+          usuarioId: p.cerradoPorId,
+        });
+      if (ventas.length) await tx.insert(moneyMovements).values(ventas);
+
+      // Enganchar los gastos elegidos para este turno.
+      if (p.gastoIds.length) {
+        await tx
+          .update(moneyMovements)
+          .set({ cierreId: cierre.id })
+          .where(
+            and(
+              inArray(moneyMovements.id, p.gastoIds),
+              isNull(moneyMovements.cierreId),
+              inArray(moneyMovements.categoria, ["gasto", "compra", "retiro"]),
+            ),
+          );
+      }
 
       const todos = await tx.select().from(moneyMovements);
       const saldoDe = (accId: number, inicial: string) => {
@@ -198,20 +228,28 @@ export async function registrarCierreDia(
 
       return {
         cierreId: cierre.id,
-        ventaEfectivo,
-        ventaTransferencia,
+        turno: p.turno,
+        ventaEfectivo: p.ventaEfectivo,
+        ventaTransferencia: p.ventaTransferencia,
         cajaTeorico,
         arqueoCaja,
         arqueoReserva,
       };
     });
 
-    for (const p2 of ["/", "/cierres", "/cuentas", "/metricas", "/cierre", "/movimiento"])
-      revalidatePath(p2);
+    for (const path of [
+      "/",
+      "/cierres",
+      "/cuentas",
+      "/metricas",
+      "/cierre",
+      "/movimiento",
+    ])
+      revalidatePath(path);
 
     return { ok: true, ...result };
   } catch (e) {
-    console.error("registrarCierreDia", e);
+    console.error("registrarCierreTurno", e);
     return { ok: false, error: "No se pudo guardar el cierre. Probá de nuevo." };
   }
 }
