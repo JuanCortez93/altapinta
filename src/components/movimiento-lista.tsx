@@ -126,16 +126,18 @@ function ViewRow({
       <span className="tnum shrink-0 font-medium text-neg">
         − {fmtARS(Number(m.monto))}
       </span>
-      {!seleccion && editable && (
+      {editable && (
         <div className="flex shrink-0 gap-0.5">
-          <button
-            type="button"
-            onClick={onEditar}
-            className="rounded-md border border-transparent p-1.5 text-subtle transition-[color,background-color,border-color] duration-150 hover:border-accent/40 hover:bg-accent-weak hover:text-accent"
-            aria-label="Editar"
-          >
-            <Pencil className="size-4" />
-          </button>
+          {!seleccion && (
+            <button
+              type="button"
+              onClick={onEditar}
+              className="rounded-md border border-transparent p-1.5 text-subtle transition-[color,background-color,border-color] duration-150 hover:border-accent/40 hover:bg-accent-weak hover:text-accent"
+              aria-label="Editar"
+            >
+              <Pencil className="size-4" />
+            </button>
+          )}
           <button
             type="button"
             disabled={pending}
