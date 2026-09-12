@@ -80,7 +80,14 @@ export function MetodoToggle({
 }
 
 /** Carga rápida de un gasto suelto. Las ventas van en el cierre del turno. */
-export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
+export function MovimientoQuickAdd({
+  onAdded,
+  fecha,
+}: {
+  onAdded?: () => void;
+  /** Fecha a la que se cargan los gastos nuevos (por defecto, hoy). */
+  fecha?: string;
+}) {
   const router = useRouter();
   const [categoria, setCategoria] = useState<SalidaCategoria | null>(null);
   const [metodo, setMetodo] = useState<Metodo>("efectivo");
@@ -112,6 +119,7 @@ export function MovimientoQuickAdd({ onAdded }: { onAdded?: () => void }) {
         categoria,
         detalle: detalle.trim(),
         monto: num(monto),
+        fecha,
       });
       if (!res.ok) return setError(res.error);
       reset();

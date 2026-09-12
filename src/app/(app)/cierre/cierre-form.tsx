@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fmtARS, todayAR } from "@/lib/format";
+import { fmtARS, fmtFecha, todayAR } from "@/lib/format";
 import { MovimientoQuickAdd } from "@/components/movimiento-quick-add";
 import { MovimientoLista, type MovimientoRow } from "@/components/movimiento-lista";
 import { registrarCierreTurno, type CierreResult, type Turno } from "./actions";
@@ -25,6 +25,7 @@ const num = (s: string) => {
 };
 
 type Props = {
+  fecha: string;
   usuarios: { id: number; nombre: string }[];
   gastos: MovimientoRow[];
   cajaChicaActual: number;
@@ -32,12 +33,14 @@ type Props = {
 };
 
 export function CierreForm({
+  fecha: fechaInicial,
   usuarios,
   gastos,
   cajaChicaActual,
   turnosDisponibles,
 }: Props) {
   const router = useRouter();
+  const [fecha, setFecha] = useState(fechaInicial);
   const [stage, setStage] = useState<"items" | "confirm">("items");
   const [turno, setTurno] = useState<Turno>(turnosDisponibles[0]);
   const [cerradoPorId, setCerradoPorId] = useState("");
@@ -86,7 +89,7 @@ export function CierreForm({
     setError(null);
     start(async () => {
       const res = await registrarCierreTurno({
-        fecha: todayAR(),
+        fecha,
         turno,
         cerradoPorId: Number(cerradoPorId),
         ventaEfectivo: num(ventaEfectivo),
@@ -104,7 +107,7 @@ export function CierreForm({
     });
   }
 
-  if (result) return <Resultado result={result} />;
+  if (result) return <Resultado result={result} fecha={fecha} />;
 
   if (stage === "confirm") {
     const dif =
@@ -119,6 +122,12 @@ export function CierreForm({
           <p className="mt-1 text-xs text-subtle">
             Ventas del turno {fmtARS(ventas)} − Gastos {fmtARS(gastosDelTurno)}
           </p>
+          {fecha !== todayAR() && (
+            <p className="mt-1 text-xs text-warn">
+              Es el saldo actual de Caja chica, no el de la fecha elegida —
+              cargá esto lo antes posible después del turno.
+            </p>
+          )}
         </section>
 
         <section className={section}>
@@ -195,7 +204,9 @@ export function CierreForm({
             disabled={pending}
             className="btn btn-primary h-12 flex-[2] text-base"
           >
-            {pending ? "Guardando…" : `Confirmar cierre de ${LABEL[turno].toLowerCase()}`}
+            {pending
+              ? "Guardando…"
+              : `Confirmar cierre de ${LABEL[turno].toLowerCase()} del ${fmtFecha(fecha)}`}
           </button>
         </div>
       </div>
@@ -206,6 +217,24 @@ export function CierreForm({
     <div className="flex flex-col gap-4">
       <section className={section}>
         <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className={lbl} id="fecha-label">
+              Fecha del turno
+            </span>
+            <input
+              aria-labelledby="fecha-label"
+              type="date"
+              value={fecha}
+              max={todayAR()}
+              onChange={(e) => {
+                const nueva = e.target.value;
+                if (!nueva) return;
+                setFecha(nueva);
+                router.push(`/cierre?fecha=${nueva}`);
+              }}
+              className={field}
+            />
+          </label>
           <div className="flex flex-col gap-1.5">
             <span className={lbl}>Turno</span>
             <div className="flex gap-1.5">
@@ -291,6 +320,7 @@ export function CierreForm({
         />
         <div className="mt-3">
           <MovimientoQuickAdd
+            fecha={fecha}
             onAdded={() => {
               router.refresh();
             }}
@@ -361,8 +391,10 @@ function Linea({ t, v, fuerte }: { t: string; v: string; fuerte?: boolean }) {
 
 function Resultado({
   result,
+  fecha,
 }: {
   result: Extract<CierreResult, { ok: true }>;
+  fecha: string;
 }) {
   const { arqueoCaja, arqueoReserva, ventaEfectivo, ventaTransferencia, turno } =
     result;
@@ -371,7 +403,9 @@ function Resultado({
       <section className="card p-5">
         <div className="flex items-center gap-1.5 text-pos">
           <span className="size-2 rounded-full bg-pos" />
-          <h2 className="font-semibold">Cierre de {LABEL[turno].toLowerCase()} listo</h2>
+          <h2 className="font-semibold">
+            Cierre de {LABEL[turno].toLowerCase()} del {fmtFecha(fecha)} listo
+          </h2>
         </div>
         <p className="mt-2 text-sm text-subtle">
           Ventas:{" "}
@@ -390,7 +424,10 @@ function Resultado({
         <Link href="/" className="btn btn-primary h-11 flex-1 text-sm">
           Ver el día
         </Link>
-        <Link href="/cierre" className="btn btn-secondary h-11 flex-1 text-sm">
+        <Link
+          href={`/cierre?fecha=${fecha}`}
+          className="btn btn-secondary h-11 flex-1 text-sm"
+        >
           Otro turno
         </Link>
       </div>

@@ -29,6 +29,8 @@ export interface GastoInput {
   categoria: SalidaCategoria;
   detalle: string;
   monto: number;
+  /** Fecha del gasto (yyyy-mm-dd). Por defecto, hoy. */
+  fecha?: string;
 }
 
 export type MovimientoResult =
@@ -41,6 +43,8 @@ function validar(p: GastoInput): string | null {
   if (!p.categoria) return "Elegí una categoría.";
   if (p.categoria === "otros" && !p.detalle.trim())
     return "En «Otros» la descripción es obligatoria.";
+  if (p.fecha && !/^\d{4}-\d{2}-\d{2}$/.test(p.fecha))
+    return "Fecha inválida.";
   return null;
 }
 
@@ -64,7 +68,7 @@ export async function agregarMovimiento(
     .insert(moneyMovements)
     .values({
       branchId: branch.id,
-      fecha: hoyISO(),
+      fecha: p.fecha || hoyISO(),
       tipo: "egreso",
       categoria,
       gastoCategoria,

@@ -16,12 +16,22 @@ const LABEL: Record<string, string> = {
   domingo: "Domingo",
 };
 
-export default async function CierrePage() {
+export default async function CierrePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fecha?: string }>;
+}) {
+  const sp = await searchParams;
   const hoy = todayAR();
+  const fecha =
+    sp.fecha && /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha) && sp.fecha <= hoy
+      ? sp.fecha
+      : hoy;
+
   const [usuarios, cierres, gastos, cuentas] = await Promise.all([
     getUsers(),
-    getCierresDelDia(hoy),
-    getMovimientosSueltosDelDia(hoy),
+    getCierresDelDia(fecha),
+    getMovimientosSueltosDelDia(fecha),
     getCuentasConSaldo(),
   ]);
 
@@ -35,12 +45,12 @@ export default async function CierrePage() {
     <div className="flex flex-col gap-5">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Cierre del turno</h1>
-        <p className="mt-0.5 text-sm capitalize text-subtle">{fmtFecha(hoy)}</p>
+        <p className="mt-0.5 text-sm capitalize text-subtle">{fmtFecha(fecha)}</p>
       </header>
 
       {cierres.length > 0 && (
         <p className="text-sm text-subtle">
-          Cerrado hoy:{" "}
+          Cerrado ese día:{" "}
           <span className="font-medium text-ink">
             {cierres.map((c) => LABEL[c.turno]).join(" · ")}
           </span>
@@ -49,16 +59,17 @@ export default async function CierrePage() {
 
       {disponibles.length === 0 ? (
         <div className="card p-5 text-sm">
-          <p className="font-medium text-pos">Los cierres de hoy ya están.</p>
-          <Link
-            href="/"
-            className="btn btn-primary mt-3 h-10 px-4 text-sm"
-          >
+          <p className="font-medium text-pos">
+            Los cierres de ese día ya están.
+          </p>
+          <Link href="/" className="btn btn-primary mt-3 h-10 px-4 text-sm">
             Ver el día
           </Link>
         </div>
       ) : (
         <CierreForm
+          key={fecha}
+          fecha={fecha}
           usuarios={usuarios.map((u) => ({ id: u.id, nombre: u.nombre }))}
           gastos={gastos.map((g) => ({
             id: g.id,
