@@ -29,9 +29,10 @@ hamburguesas y albóndigas de pollo.
 | Cierre | **Uno por turno**: Mañana y Tarde por separado (Domingo, uno solo). Cada cierre lleva **dos campos de venta** (efectivo + transferencia, se tipean juntos) y arqueo. `daily_closes` es único por `(sucursal, fecha, turno)`. |
 | Personas | Lista fija. Seed: Esequiel y Stella (encargado), Graciela (vendedor). |
 | Cuentas de dinero | **Tesoro** (efectivo, la caja del lugar), **Caja chica** (efectivo operativo), **Reserva** (adonde van las transferencias del día; se mueve según rinde el banco). Sin cuenta de provisión de sueldos. |
-| Ventas | Se declaran en el cierre del turno, en dos campos (efectivo + transferencia). Efectivo entra a Caja chica, transferencia a Reserva. No se cargan sueltas durante el día. |
+| Ventas | **Efectivo:** se declara contando la caja al final del turno ("Efectivo contado al final"); la venta la calcula el sistema restando lo que ya había en Caja chica antes del turno. **Transferencia:** se declara directo (sale de Mercado Pago / banco). Así coincide con cómo ya anotan en papel. |
 | Gastos | Se cargan sueltos en cualquier momento (`/movimiento`): Envíos, Uber, Proveedor, Retiro, Otros ("Otros" exige descripción), cada uno efectivo o transferencia. Al cerrar un turno, sus gastos del día aparecen con checkbox y tildás cuáles son de ese turno. Editables/borrables hasta que quedan en un cierre. |
-| Arqueo Caja chica | **Opcional y no bloqueante.** Al cerrar se muestra cuánto debería haber; contar la caja es opcional y el cierre se confirma coincida o no. |
+| Arqueo Caja chica | **Ya no existe como paso aparte.** Al definir la venta a partir del conteo, la caja cierra por construcción. Si el conteo da menos que lo que ya había (imposible: venta negativa), el cierre se rechaza con un mensaje claro. El arqueo de **Reserva** sí sigue siendo una verificación real (opcional). |
+| Mover dinero | Pantalla en **Cuentas**: pasar plata de una cuenta a otra (p. ej. cambiar transferencia por efectivo). Categoría `conversion`, no es venta ni gasto. |
 | Puesta en marcha | **Tabula rasa**: no se importa histórico. El día que arranca el uso real se carga el saldo que hay en ese momento en cada cuenta (`/inicio`, movimiento `fondo_inicial`) y de ahí en más todo sale de la app. |
 | Compras | **Multi-renglón** (se acabó cargar producto por producto). Catálogo de productos + "Otro" texto libre. Cada renglón lleva **presentación** cajón / kilo / unidad, sólo cuando el producto admite más de una. Genera `stock_lots` (salvo los "Otro") + un egreso de plata (Caja chica o Reserva). |
 | Conteo de stock | Set clave **diario** + inventario **completo** periódico. Conteo **a ciegas** por defecto (no se ve el teórico hasta cargar). *(Fase 2, no construido aún.)* |
@@ -48,10 +49,9 @@ hamburguesas y albóndigas de pollo.
 Durante el día   se cargan los gastos apenas ocurren (efectivo o
                  transferencia → egreso de Caja chica o Reserva)
 Cierre de turno  turno (mañana / tarde / domingo) + quién cierra
-                 vendido en efectivo + vendido en transferencia (dos campos)
+                 efectivo contado al final (→ calcula la venta en efectivo)
+                 + vendido en transferencia (directo)
                  checklist de los gastos del día: se tildan los del turno
-                 "Listo": se muestra cuánto debería haber en Caja chica
-                 (opcional) contar la caja real → diferencia, sin bloquear
                  barrido Caja chica → Tesoro (normalmente en el cierre de tarde)
                  arqueo de Reserva (opcional, contra el saldo real)
 Semanal          arqueo Tesoro + inventario completo (Fase 2)
@@ -170,8 +170,15 @@ Comandos de base de datos:
 | `npm run db:studio` | Abre Drizzle Studio para ver / editar datos. |
 | `npm run db:seed` | Carga los datos iniciales (idempotente). |
 
-> `drizzle/0002_daily_close.sql` está escrita a mano (drizzle-kit `generate`
-> necesita una terminal interactiva para resolver el renombre `shifts` →
-> `daily_closes`). `drizzle/meta/0002_snapshot.json` es un placeholder; antes del
-> próximo `db:generate` hay que regenerar el snapshot corriendo `drizzle-kit`
-> en una terminal real.
+> Las migraciones `0002` a `0005` están escritas a mano (drizzle-kit `generate`
+> necesita una terminal interactiva para resolver renombres/valores de enum
+> ambiguos, y esta sesión no tiene una). Los `meta/000N_snapshot.json` desde el
+> `0002` son placeholders (copias del anterior), así que la cadena de snapshots
+> quedó rota: **`npm run db:generate` ya no funciona** ("are pointing to a
+> parent snapshot ... which is a collision"). `npm run db:migrate` sí funciona
+> normalmente (lee `_journal.json` + los `.sql`, no depende de los snapshots).
+> Para el próximo cambio de esquema: escribir la migración `.sql` a mano de
+> nuevo (siguiendo el patrón de `0002`-`0005`), copiar el último snapshot como
+> placeholder, y agregar la entrada en `_journal.json`. Arreglar la cadena de
+> verdad requiere correr `drizzle-kit` interactivo una vez (fuera de esta
+> sesión) para regenerar los snapshots desde cero.

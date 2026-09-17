@@ -79,6 +79,7 @@ export const movimientoCategoriaEnum = pgEnum("movimiento_categoria", [
   "ajuste_arqueo",
   "ajuste_reserva",
   "fondo_inicial",
+  "conversion",
 ]);
 
 /** Subcategoría de un movimiento con categoria = "gasto". */

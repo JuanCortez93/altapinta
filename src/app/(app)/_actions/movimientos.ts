@@ -135,6 +135,50 @@ export async function borrarMovimiento(id: number): Promise<MovimientoResult> {
   return { ok: true, id };
 }
 
+/** Mover plata entre cuentas (p. ej. cambiar efectivo por transferencia). */
+export interface MoverDineroInput {
+  origenId: number;
+  destinoId: number;
+  monto: number;
+  detalle: string;
+}
+
+export async function moverDinero(
+  p: MoverDineroInput,
+): Promise<MovimientoResult> {
+  await assertAuthed();
+
+  if (!Number.isFinite(p.monto) || p.monto <= 0)
+    return { ok: false, error: "El monto tiene que ser mayor a cero." };
+  if (p.origenId === p.destinoId)
+    return { ok: false, error: "Elegí dos cuentas distintas." };
+
+  const branch = await getBranch();
+  if (!branch) return { ok: false, error: "No hay sucursal cargada." };
+
+  const cuentas = await db.select().from(moneyAccounts);
+  const origen = cuentas.find((c) => c.id === p.origenId);
+  const destino = cuentas.find((c) => c.id === p.destinoId);
+  if (!origen || !destino) return { ok: false, error: "Cuenta inválida." };
+
+  const [row] = await db
+    .insert(moneyMovements)
+    .values({
+      branchId: branch.id,
+      fecha: hoyISO(),
+      tipo: "transferencia",
+      categoria: "conversion",
+      cuentaId: origen.id,
+      cuentaDestinoId: destino.id,
+      monto: money(p.monto),
+      descripcion: p.detalle.trim() || `${origen.nombre} → ${destino.nombre}`,
+    })
+    .returning({ id: moneyMovements.id });
+
+  revalidar();
+  return { ok: true, id: row.id };
+}
+
 function revalidar() {
   for (const p of ["/", "/movimiento", "/cierre", "/cuentas"]) revalidatePath(p);
 }

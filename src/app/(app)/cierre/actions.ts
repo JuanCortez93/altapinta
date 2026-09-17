@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { cashCounts, dailyCloses, moneyAccounts, moneyMovements } from "@/db/schema";
 import { assertAuthed } from "@/lib/session";
 import { cierreYaExiste, getBranch } from "@/lib/queries";
+import { fmtARS } from "@/lib/format";
 
 const money = (n: number) => n.toFixed(2);
 
@@ -15,13 +16,12 @@ export interface CierrePayload {
   fecha: string;
   turno: Turno;
   cerradoPorId: number;
-  /** Venta bruta del turno. */
-  ventaEfectivo: number;
+  /** Efectivo contado en Caja chica al final del turno. De acá sale la venta en efectivo. */
+  efectivoContado: number;
+  /** Venta en transferencia: se declara directo (sale del Mercado Pago / banco). */
   ventaTransferencia: number;
   /** ids de gastos sueltos que corresponden a este turno. */
   gastoIds: number[];
-  /** Conteo físico de Caja chica. Opcional: si no se carga, no se guarda arqueo. */
-  efectivoContado: number | null;
   efectivoATesoro: number;
   saldoReservaApp: number | null;
   observaciones: string;
@@ -40,8 +40,7 @@ export type CierreResult =
       turno: Turno;
       ventaEfectivo: number;
       ventaTransferencia: number;
-      cajaTeorico: number;
-      arqueoCaja: Arqueo | null;
+      efectivoContado: number;
       arqueoReserva: Arqueo | null;
     }
   | { ok: false; error: string };
@@ -52,6 +51,22 @@ const LABEL_TURNO: Record<Turno, string> = {
   domingo: "domingo",
 };
 
+class CierreValidationError extends Error {}
+
+function saldoDe(
+  movs: (typeof moneyMovements.$inferSelect)[],
+  accId: number,
+  inicial: string,
+) {
+  let s = Number(inicial);
+  for (const m of movs) {
+    const monto = Number(m.monto);
+    if (m.cuentaId === accId) s += m.tipo === "ingreso" ? monto : -monto;
+    if (m.tipo === "transferencia" && m.cuentaDestinoId === accId) s += monto;
+  }
+  return s;
+}
+
 export async function registrarCierreTurno(
   p: CierrePayload,
 ): Promise<CierreResult> {
@@ -61,15 +76,10 @@ export async function registrarCierreTurno(
     return { ok: false, error: "Fecha inválida." };
   if (!LABEL_TURNO[p.turno]) return { ok: false, error: "Elegí el turno." };
   if (!p.cerradoPorId) return { ok: false, error: "Elegí quién cierra el turno." };
-  for (const v of [p.ventaEfectivo, p.ventaTransferencia]) {
-    if (!Number.isFinite(v) || v < 0)
-      return { ok: false, error: "Las ventas tienen un monto inválido." };
-  }
-  if (
-    p.efectivoContado != null &&
-    (!Number.isFinite(p.efectivoContado) || p.efectivoContado < 0)
-  )
+  if (!Number.isFinite(p.efectivoContado) || p.efectivoContado < 0)
     return { ok: false, error: "El efectivo contado es inválido." };
+  if (!Number.isFinite(p.ventaTransferencia) || p.ventaTransferencia < 0)
+    return { ok: false, error: "La venta por transferencia es inválida." };
   if (!Number.isFinite(p.efectivoATesoro) || p.efectivoATesoro < 0)
     return { ok: false, error: "El monto a pasar al Tesoro es inválido." };
 
@@ -90,16 +100,29 @@ export async function registrarCierreTurno(
 
   try {
     const result = await db.transaction(async (tx) => {
+      // Cuánto hay en Caja chica antes de procesar este cierre. Los gastos
+      // del turno ya están posteados a la cuenta (se descuentan apenas se
+      // cargan, tengan o no cierre_id todavía), así que esto ya viene neto.
+      const antes = await tx.select().from(moneyMovements);
+      const cajaChicaAntes = saldoDe(antes, cajaChica.id, cajaChica.saldoInicial);
+      const ventaEfectivo =
+        Math.round((p.efectivoContado - cajaChicaAntes) * 100) / 100;
+
+      if (ventaEfectivo < 0) {
+        throw new CierreValidationError(
+          `El efectivo contado (${fmtARS(p.efectivoContado)}) es menor a lo que ya había en Caja chica (${fmtARS(cajaChicaAntes)}) antes de este turno. Revisá los gastos cargados o el conteo.`,
+        );
+      }
+
       const [cierre] = await tx
         .insert(dailyCloses)
         .values({
           branchId: branch.id,
           fecha: p.fecha,
           turno: p.turno,
-          ventaEfectivo: money(p.ventaEfectivo),
+          ventaEfectivo: money(ventaEfectivo),
           ventaTransferencia: money(p.ventaTransferencia),
-          efectivoContado:
-            p.efectivoContado != null ? money(p.efectivoContado) : null,
+          efectivoContado: money(p.efectivoContado),
           efectivoATesoro: money(p.efectivoATesoro),
           saldoReservaApp:
             p.saldoReservaApp != null ? money(p.saldoReservaApp) : null,
@@ -109,16 +132,29 @@ export async function registrarCierreTurno(
         })
         .returning();
 
-      // Ventas del turno, como movimientos enganchados al cierre.
+      // Enganchar los gastos elegidos para este turno.
+      if (p.gastoIds.length) {
+        await tx
+          .update(moneyMovements)
+          .set({ cierreId: cierre.id })
+          .where(
+            and(
+              inArray(moneyMovements.id, p.gastoIds),
+              isNull(moneyMovements.cierreId),
+              inArray(moneyMovements.categoria, ["gasto", "compra", "retiro"]),
+            ),
+          );
+      }
+
       const ventas: (typeof moneyMovements.$inferInsert)[] = [];
-      if (p.ventaEfectivo > 0)
+      if (ventaEfectivo > 0)
         ventas.push({
           branchId: branch.id,
           fecha: p.fecha,
           tipo: "ingreso",
           categoria: "venta_efectivo",
           cuentaId: cajaChica.id,
-          monto: money(p.ventaEfectivo),
+          monto: money(ventaEfectivo),
           cierreId: cierre.id,
           descripcion: `Ventas ${LABEL_TURNO[p.turno]} en efectivo`,
           usuarioId: p.cerradoPorId,
@@ -137,58 +173,6 @@ export async function registrarCierreTurno(
         });
       if (ventas.length) await tx.insert(moneyMovements).values(ventas);
 
-      // Enganchar los gastos elegidos para este turno.
-      if (p.gastoIds.length) {
-        await tx
-          .update(moneyMovements)
-          .set({ cierreId: cierre.id })
-          .where(
-            and(
-              inArray(moneyMovements.id, p.gastoIds),
-              isNull(moneyMovements.cierreId),
-              inArray(moneyMovements.categoria, ["gasto", "compra", "retiro"]),
-            ),
-          );
-      }
-
-      const todos = await tx.select().from(moneyMovements);
-      const saldoDe = (accId: number, inicial: string) => {
-        let s = Number(inicial);
-        for (const m of todos) {
-          const monto = Number(m.monto);
-          if (m.cuentaId === accId) s += m.tipo === "ingreso" ? monto : -monto;
-          if (m.tipo === "transferencia" && m.cuentaDestinoId === accId)
-            s += monto;
-        }
-        return s;
-      };
-
-      const cajaTeorico = saldoDe(cajaChica.id, cajaChica.saldoInicial);
-
-      let arqueoCaja: Arqueo | null = null;
-      if (p.efectivoContado != null) {
-        arqueoCaja = {
-          teorico: cajaTeorico,
-          contado: p.efectivoContado,
-          diferencia: p.efectivoContado - cajaTeorico,
-        };
-        await tx
-          .update(dailyCloses)
-          .set({ diferenciaEfectivo: money(arqueoCaja.diferencia) })
-          .where(eq(dailyCloses.id, cierre.id));
-        await tx.insert(cashCounts).values({
-          branchId: branch.id,
-          accountId: cajaChica.id,
-          fecha: p.fecha,
-          momento: "cierre_dia",
-          cierreId: cierre.id,
-          saldoTeorico: money(arqueoCaja.teorico),
-          saldoContado: money(arqueoCaja.contado),
-          diferencia: money(arqueoCaja.diferencia),
-          usuarioId: p.cerradoPorId,
-        });
-      }
-
       if (p.efectivoATesoro > 0) {
         await tx.insert(moneyMovements).values({
           branchId: branch.id,
@@ -206,7 +190,8 @@ export async function registrarCierreTurno(
 
       let arqueoReserva: Arqueo | null = null;
       if (p.saldoReservaApp != null) {
-        const rTeorico = saldoDe(reserva.id, reserva.saldoInicial);
+        const todos = await tx.select().from(moneyMovements);
+        const rTeorico = saldoDe(todos, reserva.id, reserva.saldoInicial);
         arqueoReserva = {
           teorico: rTeorico,
           contado: p.saldoReservaApp,
@@ -229,10 +214,9 @@ export async function registrarCierreTurno(
       return {
         cierreId: cierre.id,
         turno: p.turno,
-        ventaEfectivo: p.ventaEfectivo,
+        ventaEfectivo,
         ventaTransferencia: p.ventaTransferencia,
-        cajaTeorico,
-        arqueoCaja,
+        efectivoContado: p.efectivoContado,
         arqueoReserva,
       };
     });
@@ -249,6 +233,8 @@ export async function registrarCierreTurno(
 
     return { ok: true, ...result };
   } catch (e) {
+    if (e instanceof CierreValidationError)
+      return { ok: false, error: e.message };
     console.error("registrarCierreTurno", e);
     return { ok: false, error: "No se pudo guardar el cierre. Probá de nuevo." };
   }

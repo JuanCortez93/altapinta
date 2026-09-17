@@ -1,6 +1,7 @@
 import { getCuentasConSaldo, getMovimientosRecientes } from "@/lib/queries";
 import { fmtARS, fmtFecha } from "@/lib/format";
 import { etiquetaMovimiento } from "@/lib/gastos";
+import { MoverDineroForm } from "@/components/mover-dinero-form";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ const CAT_LABEL: Record<string, string> = {
   ajuste_reserva: "Ajuste de Reserva",
   fondo_inicial: "Fondo inicial",
   sueldo: "Sueldo",
+  conversion: "Movimiento entre cuentas",
 };
 
 function etiqueta(categoria: string, gastoCategoria: string | null): string {
@@ -29,6 +31,10 @@ export default async function CuentasPage() {
   return (
     <div className="flex flex-col gap-5">
       <h1 className="text-2xl font-semibold tracking-tight">Cuentas</h1>
+
+      <MoverDineroForm
+        cuentas={cuentas.map((c) => ({ id: c.id, nombre: c.nombre }))}
+      />
 
       <section className="grid grid-cols-3 gap-2">
         {cuentas.map((c) => (

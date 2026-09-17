@@ -44,12 +44,11 @@ export function CierreForm({
   const [stage, setStage] = useState<"items" | "confirm">("items");
   const [turno, setTurno] = useState<Turno>(turnosDisponibles[0]);
   const [cerradoPorId, setCerradoPorId] = useState("");
-  const [ventaEfectivo, setVentaEfectivo] = useState("");
+  const [efectivoContado, setEfectivoContado] = useState("");
   const [ventaTransferencia, setVentaTransferencia] = useState("");
   const [gastoIds, setGastoIds] = useState<Set<number>>(
     () => new Set(gastos.map((g) => g.id)),
   );
-  const [efectivoContado, setEfectivoContado] = useState("");
   const [efectivoATesoro, setEfectivoATesoro] = useState("");
   const [saldoReservaApp, setSaldoReservaApp] = useState("");
   const [observaciones, setObservaciones] = useState("");
@@ -67,7 +66,11 @@ export function CierreForm({
         .reduce((a, g) => a + Number(g.monto), 0),
     [gastos, gastoIds],
   );
-  const ventas = num(ventaEfectivo) + num(ventaTransferencia);
+
+  // Estimación en vivo: el cálculo real (y definitivo) lo hace el servidor
+  // al confirmar, con el saldo de Caja chica más actualizado.
+  const ventaEfectivoEstimada = num(efectivoContado) - cajaChicaActual;
+  const ventas = Math.max(0, ventaEfectivoEstimada) + num(ventaTransferencia);
   const neto = ventas - gastosDelTurno;
 
   function toggleGasto(id: number) {
@@ -82,6 +85,12 @@ export function CierreForm({
   function irAConfirmar() {
     setError(null);
     if (!cerradoPorId) return setError("Elegí quién cierra el turno.");
+    if (efectivoContado.trim() === "")
+      return setError("Contá el efectivo que quedó en la caja al final del turno.");
+    if (ventaEfectivoEstimada < 0)
+      return setError(
+        `El efectivo contado (${fmtARS(num(efectivoContado))}) es menor a lo que ya había en Caja chica (${fmtARS(cajaChicaActual)}). Revisá los gastos cargados o el conteo.`,
+      );
     setStage("confirm");
   }
 
@@ -92,11 +101,9 @@ export function CierreForm({
         fecha,
         turno,
         cerradoPorId: Number(cerradoPorId),
-        ventaEfectivo: num(ventaEfectivo),
+        efectivoContado: num(efectivoContado),
         ventaTransferencia: num(ventaTransferencia),
         gastoIds: [...gastoIds],
-        efectivoContado:
-          efectivoContado.trim() !== "" ? num(efectivoContado) : null,
         efectivoATesoro: num(efectivoATesoro),
         saldoReservaApp:
           saldoReservaApp.trim() !== "" ? num(saldoReservaApp) : null,
@@ -110,48 +117,18 @@ export function CierreForm({
   if (result) return <Resultado result={result} fecha={fecha} />;
 
   if (stage === "confirm") {
-    const dif =
-      efectivoContado.trim() !== ""
-        ? num(efectivoContado) - cajaChicaActual
-        : null;
     return (
       <div className="flex flex-col gap-4">
         <section className={section}>
-          <h2 className="mb-1 font-medium">Debería haber en Caja chica</h2>
-          <p className="tnum text-2xl font-semibold">{fmtARS(cajaChicaActual)}</p>
-          <p className="mt-1 text-xs text-subtle">
-            Ventas del turno {fmtARS(ventas)} − Gastos {fmtARS(gastosDelTurno)}
-          </p>
-          {fecha !== todayAR() && (
-            <p className="mt-1 text-xs text-warn">
-              Es el saldo actual de Caja chica, no el de la fecha elegida —
-              cargá esto lo antes posible después del turno.
-            </p>
-          )}
-        </section>
-
-        <section className={section}>
-          <label className="flex flex-col gap-1.5">
-            <span className={lbl}>¿Contaste la caja? (opcional)</span>
-            <Money
-              id="contado"
-              value={efectivoContado}
-              onChange={setEfectivoContado}
+          <h2 className="mb-1 font-medium">Resumen del turno</h2>
+          <dl className="flex flex-col gap-1.5 text-sm">
+            <Linea t="Efectivo contado" v={fmtARS(num(efectivoContado))} />
+            <Linea
+              t="Vendido en efectivo (calculado)"
+              v={fmtARS(Math.max(0, ventaEfectivoEstimada))}
             />
-          </label>
-          {dif != null && (
-            <p
-              className={
-                "mt-2 text-sm font-medium " +
-                (Math.abs(dif) < 0.01 ? "text-pos" : "text-neg")
-              }
-            >
-              {Math.abs(dif) < 0.01
-                ? "Coincide."
-                : (dif > 0 ? "Sobra " : "Falta ") + fmtARS(Math.abs(dif))}
-            </p>
-          )}
-          <p className="mt-1 text-xs text-subtle">Cierra igual, coincida o no.</p>
+            <Linea t="Vendido en transferencia" v={fmtARS(num(ventaTransferencia))} />
+          </dl>
         </section>
 
         <section className={section}>
@@ -278,13 +255,23 @@ export function CierreForm({
       </section>
 
       <section className={section}>
-        <h2 className="mb-3 font-medium">Ventas del turno</h2>
+        <h2 className="mb-1 font-medium">Ventas del turno</h2>
+        <p className="mb-3 text-xs text-subtle">
+          Había en Caja chica antes de este turno:{" "}
+          <span className="tnum font-medium text-ink">
+            {fmtARS(cajaChicaActual)}
+          </span>
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label className={lbl} htmlFor="v-ef">
-              Vendido en efectivo
+            <label className={lbl} htmlFor="ef-contado">
+              Efectivo contado al final
             </label>
-            <Money id="v-ef" value={ventaEfectivo} onChange={setVentaEfectivo} />
+            <Money
+              id="ef-contado"
+              value={efectivoContado}
+              onChange={setEfectivoContado}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className={lbl} htmlFor="v-tr">
@@ -297,7 +284,22 @@ export function CierreForm({
             />
           </div>
         </div>
-        <p className="mt-3 text-sm text-subtle">
+        {efectivoContado.trim() !== "" && (
+          <p
+            className={
+              "mt-3 text-sm " +
+              (ventaEfectivoEstimada < 0 ? "font-medium text-neg" : "text-subtle")
+            }
+          >
+            Vendido en efectivo (calculado):{" "}
+            <span className="tnum font-semibold">
+              {fmtARS(Math.max(0, ventaEfectivoEstimada))}
+            </span>
+            {ventaEfectivoEstimada < 0 &&
+              " — da negativo, revisá el conteo o los gastos."}
+          </p>
+        )}
+        <p className="mt-1 text-sm text-subtle">
           Total del turno{" "}
           <span className="tnum font-semibold text-ink">{fmtARS(ventas)}</span>
         </p>
@@ -396,7 +398,7 @@ function Resultado({
   result: Extract<CierreResult, { ok: true }>;
   fecha: string;
 }) {
-  const { arqueoCaja, arqueoReserva, ventaEfectivo, ventaTransferencia, turno } =
+  const { arqueoReserva, ventaEfectivo, ventaTransferencia, efectivoContado, turno } =
     result;
   return (
     <div className="flex flex-col gap-4">
@@ -407,16 +409,15 @@ function Resultado({
             Cierre de {LABEL[turno].toLowerCase()} del {fmtFecha(fecha)} listo
           </h2>
         </div>
-        <p className="mt-2 text-sm text-subtle">
-          Ventas:{" "}
-          <span className="tnum font-medium text-ink">
-            {fmtARS(ventaEfectivo + ventaTransferencia)}
-          </span>
-        </p>
-        {(arqueoCaja || arqueoReserva) && (
-          <div className="mt-4 flex flex-col gap-2.5">
-            {arqueoCaja && <ArqueoLinea titulo="Caja chica" a={arqueoCaja} />}
-            {arqueoReserva && <ArqueoLinea titulo="Reserva" a={arqueoReserva} />}
+        <dl className="mt-3 flex flex-col gap-1.5 text-sm">
+          <Linea t="Efectivo contado" v={fmtARS(efectivoContado)} />
+          <Linea t="Vendido en efectivo" v={fmtARS(ventaEfectivo)} />
+          <Linea t="Vendido en transferencia" v={fmtARS(ventaTransferencia)} />
+          <Linea t="Total vendido" v={fmtARS(ventaEfectivo + ventaTransferencia)} fuerte />
+        </dl>
+        {arqueoReserva && (
+          <div className="mt-4">
+            <ArqueoLinea titulo="Reserva" a={arqueoReserva} />
           </div>
         )}
       </section>
