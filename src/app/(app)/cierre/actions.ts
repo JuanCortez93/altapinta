@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { cashCounts, dailyCloses, moneyAccounts, moneyMovements } from "@/db/schema";
 import { assertAuthed } from "@/lib/session";
@@ -237,5 +237,63 @@ export async function registrarCierreTurno(
       return { ok: false, error: e.message };
     console.error("registrarCierreTurno", e);
     return { ok: false, error: "No se pudo guardar el cierre. Probá de nuevo." };
+  }
+}
+
+export type BorrarCierreResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Borra un cierre por error de carga. Las ventas y el barrido al Tesoro que
+ * generó se eliminan; los gastos/compras/retiros que tenía enganchados
+ * vuelven a quedar sueltos (se pueden re-enganchar a otro cierre).
+ */
+export async function borrarCierre(cierreId: number): Promise<BorrarCierreResult> {
+  await assertAuthed();
+
+  try {
+    await db.transaction(async (tx) => {
+      const [cierre] = await tx
+        .select({ id: dailyCloses.id })
+        .from(dailyCloses)
+        .where(eq(dailyCloses.id, cierreId));
+      if (!cierre) throw new CierreValidationError("Ese cierre ya no existe.");
+
+      // Los gastos/compras/retiros vuelven a quedar sueltos.
+      await tx
+        .update(moneyMovements)
+        .set({ cierreId: null })
+        .where(
+          and(
+            eq(moneyMovements.cierreId, cierreId),
+            inArray(moneyMovements.categoria, ["gasto", "compra", "retiro"]),
+          ),
+        );
+
+      // Lo que queda enganchado (ventas, barrido al Tesoro) era propio de
+      // este cierre: se borra.
+      await tx
+        .delete(moneyMovements)
+        .where(eq(moneyMovements.cierreId, cierreId));
+
+      await tx.delete(cashCounts).where(eq(cashCounts.cierreId, cierreId));
+      await tx.delete(dailyCloses).where(eq(dailyCloses.id, cierreId));
+    });
+
+    for (const path of [
+      "/",
+      "/cierres",
+      "/cuentas",
+      "/metricas",
+      "/cierre",
+      "/movimiento",
+    ])
+      revalidatePath(path);
+
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof CierreValidationError)
+      return { ok: false, error: e.message };
+    console.error("borrarCierre", e);
+    return { ok: false, error: "No se pudo borrar el cierre. Probá de nuevo." };
   }
 }

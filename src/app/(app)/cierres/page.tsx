@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCierresRecientes } from "@/lib/queries";
 import { fmtARS, fmtFecha } from "@/lib/format";
+import { BorrarCierreButton } from "@/components/borrar-cierre-button";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,9 @@ export default async function CierresPage() {
                 <th className="px-3 py-2.5 text-right font-medium">Transf.</th>
                 <th className="px-3 py-2.5 text-right font-medium">Total</th>
                 <th className="px-4 py-2.5 text-right font-medium">Arqueo</th>
+                <th className="px-3 py-2.5 text-right font-medium">
+                  <span className="sr-only">Acciones</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -76,6 +80,9 @@ export default async function CierresPage() {
                           {fmtARS(Math.abs(dif))}
                         </span>
                       )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <BorrarCierreButton cierreId={c.id} />
                     </td>
                   </tr>
                 );
