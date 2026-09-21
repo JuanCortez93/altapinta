@@ -49,7 +49,7 @@ export function CierreForm({
   const [gastoIds, setGastoIds] = useState<Set<number>>(
     () => new Set(gastos.map((g) => g.id)),
   );
-  const [efectivoATesoro, setEfectivoATesoro] = useState("");
+  const [dejarEnCaja, setDejarEnCaja] = useState("");
   const [saldoReservaApp, setSaldoReservaApp] = useState("");
   const [observaciones, setObservaciones] = useState("");
 
@@ -96,6 +96,11 @@ export function CierreForm({
 
   function confirmar() {
     setError(null);
+    if (dejarEnCaja.trim() !== "" && efectivoATesoroEstimado < 0) {
+      return setError(
+        `Dejar ${fmtARS(num(dejarEnCaja))} en Caja chica es más de lo que contaste (${fmtARS(num(efectivoContado))}).`,
+      );
+    }
     start(async () => {
       const res = await registrarCierreTurno({
         fecha,
@@ -104,7 +109,7 @@ export function CierreForm({
         efectivoContado: num(efectivoContado),
         ventaTransferencia: num(ventaTransferencia),
         gastoIds: [...gastoIds],
-        efectivoATesoro: num(efectivoATesoro),
+        dejarEnCaja: dejarEnCaja.trim() !== "" ? num(dejarEnCaja) : null,
         saldoReservaApp:
           saldoReservaApp.trim() !== "" ? num(saldoReservaApp) : null,
         observaciones: observaciones.trim(),
@@ -115,6 +120,11 @@ export function CierreForm({
   }
 
   if (result) return <Resultado result={result} fecha={fecha} />;
+
+  const efectivoATesoroEstimado =
+    dejarEnCaja.trim() !== ""
+      ? num(efectivoContado) - num(dejarEnCaja)
+      : 0;
 
   if (stage === "confirm") {
     return (
@@ -134,11 +144,13 @@ export function CierreForm({
         <section className={section}>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5">
-              <span className={lbl}>Efectivo que pasa al Tesoro</span>
+              <span className={lbl}>
+                ¿Cuánto dejás en Caja chica para el próximo turno?
+              </span>
               <Money
-                id="tesoro"
-                value={efectivoATesoro}
-                onChange={setEfectivoATesoro}
+                id="dejar-caja"
+                value={dejarEnCaja}
+                onChange={setDejarEnCaja}
               />
             </label>
             <label className="flex flex-col gap-1.5">
@@ -150,6 +162,18 @@ export function CierreForm({
               />
             </label>
           </div>
+          <p
+            className={
+              "mt-2 text-sm " +
+              (efectivoATesoroEstimado < 0 ? "font-medium text-neg" : "text-subtle")
+            }
+          >
+            {dejarEnCaja.trim() === ""
+              ? "Vacío: no se manda nada al Tesoro, queda todo en la caja."
+              : efectivoATesoroEstimado < 0
+                ? `Eso es más de lo que contaste (${fmtARS(num(efectivoContado))}).`
+                : `Va al Tesoro: ${fmtARS(efectivoATesoroEstimado)}`}
+          </p>
           <label className="mt-3 flex flex-col gap-1.5">
             <span className={lbl}>Observaciones (opcional)</span>
             <textarea
@@ -398,8 +422,15 @@ function Resultado({
   result: Extract<CierreResult, { ok: true }>;
   fecha: string;
 }) {
-  const { arqueoReserva, ventaEfectivo, ventaTransferencia, efectivoContado, turno } =
-    result;
+  const {
+    arqueoReserva,
+    ventaEfectivo,
+    ventaTransferencia,
+    efectivoContado,
+    efectivoATesoro,
+    dejaEnCaja,
+    turno,
+  } = result;
   return (
     <div className="flex flex-col gap-4">
       <section className="card p-5">
@@ -414,6 +445,9 @@ function Resultado({
           <Linea t="Vendido en efectivo" v={fmtARS(ventaEfectivo)} />
           <Linea t="Vendido en transferencia" v={fmtARS(ventaTransferencia)} />
           <Linea t="Total vendido" v={fmtARS(ventaEfectivo + ventaTransferencia)} fuerte />
+          <div className="my-1 border-t border-line" />
+          <Linea t="Va al Tesoro" v={fmtARS(efectivoATesoro)} />
+          <Linea t="Queda en Caja chica" v={fmtARS(dejaEnCaja)} />
         </dl>
         {arqueoReserva && (
           <div className="mt-4">

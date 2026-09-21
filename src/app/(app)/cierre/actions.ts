@@ -22,7 +22,12 @@ export interface CierrePayload {
   ventaTransferencia: number;
   /** ids de gastos sueltos que corresponden a este turno. */
   gastoIds: number[];
-  efectivoATesoro: number;
+  /**
+   * Cuánto se deja en Caja chica para el próximo turno (el fondo del día
+   * siguiente). Vacío = se deja todo, no se manda nada al Tesoro. El monto
+   * que se barre al Tesoro se calcula solo: efectivoContado − dejarEnCaja.
+   */
+  dejarEnCaja: number | null;
   saldoReservaApp: number | null;
   observaciones: string;
 }
@@ -41,6 +46,8 @@ export type CierreResult =
       ventaEfectivo: number;
       ventaTransferencia: number;
       efectivoContado: number;
+      efectivoATesoro: number;
+      dejaEnCaja: number;
       arqueoReserva: Arqueo | null;
     }
   | { ok: false; error: string };
@@ -80,8 +87,11 @@ export async function registrarCierreTurno(
     return { ok: false, error: "El efectivo contado es inválido." };
   if (!Number.isFinite(p.ventaTransferencia) || p.ventaTransferencia < 0)
     return { ok: false, error: "La venta por transferencia es inválida." };
-  if (!Number.isFinite(p.efectivoATesoro) || p.efectivoATesoro < 0)
-    return { ok: false, error: "El monto a pasar al Tesoro es inválido." };
+  if (
+    p.dejarEnCaja != null &&
+    (!Number.isFinite(p.dejarEnCaja) || p.dejarEnCaja < 0)
+  )
+    return { ok: false, error: "El monto a dejar en Caja chica es inválido." };
 
   const branch = await getBranch();
   if (!branch) return { ok: false, error: "No hay sucursal cargada." };
@@ -114,6 +124,19 @@ export async function registrarCierreTurno(
         );
       }
 
+      // El monto que se manda al Tesoro se calcula, no se tipea: así el
+      // saldo que queda en Caja chica es siempre exactamente "dejarEnCaja",
+      // sin depender de que nadie reste bien a mano.
+      const dejaEnCaja = p.dejarEnCaja ?? p.efectivoContado;
+      const efectivoATesoro =
+        Math.round((p.efectivoContado - dejaEnCaja) * 100) / 100;
+
+      if (efectivoATesoro < 0) {
+        throw new CierreValidationError(
+          `Dejar ${fmtARS(dejaEnCaja)} en Caja chica es más de lo que contaste (${fmtARS(p.efectivoContado)}).`,
+        );
+      }
+
       const [cierre] = await tx
         .insert(dailyCloses)
         .values({
@@ -123,7 +146,7 @@ export async function registrarCierreTurno(
           ventaEfectivo: money(ventaEfectivo),
           ventaTransferencia: money(p.ventaTransferencia),
           efectivoContado: money(p.efectivoContado),
-          efectivoATesoro: money(p.efectivoATesoro),
+          efectivoATesoro: money(efectivoATesoro),
           saldoReservaApp:
             p.saldoReservaApp != null ? money(p.saldoReservaApp) : null,
           observaciones: p.observaciones || null,
@@ -173,7 +196,7 @@ export async function registrarCierreTurno(
         });
       if (ventas.length) await tx.insert(moneyMovements).values(ventas);
 
-      if (p.efectivoATesoro > 0) {
+      if (efectivoATesoro > 0) {
         await tx.insert(moneyMovements).values({
           branchId: branch.id,
           fecha: p.fecha,
@@ -181,7 +204,7 @@ export async function registrarCierreTurno(
           categoria: "deposito_tesoro",
           cuentaId: cajaChica.id,
           cuentaDestinoId: tesoro.id,
-          monto: money(p.efectivoATesoro),
+          monto: money(efectivoATesoro),
           cierreId: cierre.id,
           descripcion: "Barrido de Caja chica al Tesoro",
           usuarioId: p.cerradoPorId,
@@ -217,6 +240,8 @@ export async function registrarCierreTurno(
         ventaEfectivo,
         ventaTransferencia: p.ventaTransferencia,
         efectivoContado: p.efectivoContado,
+        efectivoATesoro,
+        dejaEnCaja,
         arqueoReserva,
       };
     });
