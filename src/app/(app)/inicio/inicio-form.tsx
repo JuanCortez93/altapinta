@@ -96,8 +96,8 @@ export function InicioForm({ hoy, cuentas }: { hoy: string; cuentas: Cuenta[] })
           />
           <Campo
             id="reserva"
-            label="Reserva"
-            ayuda="Lo que ya tengas guardado de transferencias, si aplica."
+            label="Mercado Pago"
+            ayuda="Lo que ya tengas ahí guardado de transferencias, si aplica."
             value={reserva}
             onChange={setReserva}
             cuenta={cReserva}

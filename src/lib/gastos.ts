@@ -3,7 +3,7 @@
  * momento (o durante el cierre) y quedan enganchados al cierre del día.
  *
  * Cada movimiento tiene un método de pago (efectivo / transferencia), que
- * define la cuenta: efectivo -> Caja chica, transferencia -> Reserva.
+ * define la cuenta: efectivo -> Caja chica, transferencia -> Mercado Pago.
  *
  * Cómo se guarda cada gasto en money_movements:
  *  - envios / uber / otros -> categoria "gasto" + gasto_categoria
@@ -100,9 +100,9 @@ export function etiquetaMovimiento(
 
 /**
  * Método de pago según el nombre de la cuenta que tocó el movimiento.
- * Los movimientos sueltos sólo pegan en Caja chica (efectivo) o Reserva
+ * Los movimientos sueltos sólo pegan en Caja chica (efectivo) o Mercado Pago
  * (transferencia); Tesoro sólo se usa en el barrido del cierre.
  */
 export function metodoDeCuenta(nombreCuenta: string | null): Metodo {
-  return nombreCuenta === "Reserva" ? "transferencia" : "efectivo";
+  return nombreCuenta === "Mercado Pago" ? "transferencia" : "efectivo";
 }

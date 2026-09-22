@@ -154,12 +154,16 @@ export function CierreForm({
               />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className={lbl}>Saldo de la Reserva (opcional)</span>
+              <span className={lbl}>Saldo en Mercado Pago (opcional)</span>
               <Money
                 id="reserva"
                 value={saldoReservaApp}
                 onChange={setSaldoReservaApp}
               />
+              <span className="text-xs text-subtle">
+                Lo que ves ahora en la app, para chequear contra lo declarado
+                en transferencias.
+              </span>
             </label>
           </div>
           <p
@@ -451,7 +455,7 @@ function Resultado({
         </dl>
         {arqueoReserva && (
           <div className="mt-4">
-            <ArqueoLinea titulo="Reserva" a={arqueoReserva} />
+            <ArqueoLinea titulo="Mercado Pago" a={arqueoReserva} />
           </div>
         )}
       </section>

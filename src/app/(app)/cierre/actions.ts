@@ -229,7 +229,7 @@ export async function registrarCierreTurno(
           saldoTeorico: money(arqueoReserva.teorico),
           saldoContado: money(arqueoReserva.contado),
           diferencia: money(arqueoReserva.diferencia),
-          nota: "Saldo declarado de la Reserva",
+          nota: "Saldo declarado de Mercado Pago",
           usuarioId: p.cerradoPorId,
         });
       }

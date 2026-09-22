@@ -7,7 +7,7 @@ Sistema de **control y conciliación** para la pollería Alta Pinta.
 > cerrar el día el sistema muestra cuánto debería haber en la caja. El
 > sistema verifica dos cosas:
 >
-> 1. **Dinero** — la plata que hay (Caja chica + Reserva + Tesoro) coincide
+> 1. **Dinero** — la plata que hay (Caja chica + Mercado Pago + Tesoro) coincide
 >    con lo declarado menos lo gastado. El cierre nunca se bloquea por una
 >    diferencia; solo la deja registrada.
 > 2. **Venta vs stock** — lo declarado como venta se condice con la mercadería
@@ -28,13 +28,13 @@ hamburguesas y albóndigas de pollo.
 | Stock | Global por producto, pero con **lotes fechados** (fecha de ingreso + costo real) para rotar lo más viejo primero (FEFO). |
 | Cierre | **Uno por turno**: Mañana y Tarde por separado (Domingo, uno solo). Cada cierre lleva **dos campos de venta** (efectivo + transferencia, se tipean juntos) y arqueo. `daily_closes` es único por `(sucursal, fecha, turno)`. |
 | Personas | Lista fija. Seed: Esequiel y Stella (encargado), Graciela (vendedor). |
-| Cuentas de dinero | **Tesoro** (efectivo, la caja del lugar), **Caja chica** (efectivo operativo), **Reserva** (adonde van las transferencias del día; se mueve según rinde el banco). Sin cuenta de provisión de sueldos. |
+| Cuentas de dinero | **Tesoro** (efectivo, la caja del lugar), **Caja chica** (efectivo operativo), **Mercado Pago** (no es efectivo: adonde van las transferencias del día; se mueve según rinde el banco). Sin cuenta de provisión de sueldos. |
 | Ventas | **Efectivo:** se declara contando la caja al final del turno ("Efectivo contado al final"); la venta la calcula el sistema restando lo que ya había en Caja chica antes del turno. **Transferencia:** se declara directo (sale de Mercado Pago / banco). Así coincide con cómo ya anotan en papel. |
 | Gastos | Se cargan sueltos en cualquier momento (`/movimiento`): Envíos, Uber, Proveedor, Retiro, Otros ("Otros" exige descripción), cada uno efectivo o transferencia. Al cerrar un turno, sus gastos del día aparecen con checkbox y tildás cuáles son de ese turno. Editables/borrables hasta que quedan en un cierre. |
-| Arqueo Caja chica | **Ya no existe como paso aparte.** Al definir la venta a partir del conteo, la caja cierra por construcción. Si el conteo da menos que lo que ya había (imposible: venta negativa), el cierre se rechaza con un mensaje claro. El arqueo de **Reserva** sí sigue siendo una verificación real (opcional). |
+| Arqueo Caja chica | **Ya no existe como paso aparte.** Al definir la venta a partir del conteo, la caja cierra por construcción. Si el conteo da menos que lo que ya había (imposible: venta negativa), el cierre se rechaza con un mensaje claro. El arqueo de **Mercado Pago** sí sigue siendo una verificación real (opcional). |
 | Mover dinero | Pantalla en **Cuentas**: pasar plata de una cuenta a otra (p. ej. cambiar transferencia por efectivo). Categoría `conversion`, no es venta ni gasto. |
 | Puesta en marcha | **Tabula rasa**: no se importa histórico. El día que arranca el uso real se carga el saldo que hay en ese momento en cada cuenta (`/inicio`, movimiento `fondo_inicial`) y de ahí en más todo sale de la app. |
-| Compras | **Multi-renglón** (se acabó cargar producto por producto). Catálogo de productos + "Otro" texto libre. Cada renglón lleva **presentación** cajón / kilo / unidad, sólo cuando el producto admite más de una. Genera `stock_lots` (salvo los "Otro") + un egreso de plata (Caja chica o Reserva). |
+| Compras | **Multi-renglón** (se acabó cargar producto por producto). Catálogo de productos + "Otro" texto libre. Cada renglón lleva **presentación** cajón / kilo / unidad, sólo cuando el producto admite más de una. Genera `stock_lots` (salvo los "Otro") + un egreso de plata (Caja chica, Mercado Pago o Tesoro). |
 | Conteo de stock | Set clave **diario** + inventario **completo** periódico. Conteo **a ciegas** por defecto (no se ve el teórico hasta cargar). *(Fase 2, no construido aún.)* |
 | Costeo | Por lote, al costo real de cada compra. Consumo del lote más antiguo primero. *(Fase 2.)* |
 | Promociones | Se deciden según margen + antigüedad de stock. Impacto medido de forma agregada. *(Fase 4.)* |
@@ -47,13 +47,13 @@ hamburguesas y albóndigas de pollo.
 
 ```
 Durante el día   se cargan los gastos apenas ocurren (efectivo o
-                 transferencia → egreso de Caja chica o Reserva)
+                 transferencia → egreso de Caja chica o Mercado Pago)
 Cierre de turno  turno (mañana / tarde / domingo) + quién cierra
                  efectivo contado al final (→ calcula la venta en efectivo)
                  + vendido en transferencia (directo)
                  checklist de los gastos del día: se tildan los del turno
                  barrido Caja chica → Tesoro (normalmente en el cierre de tarde)
-                 arqueo de Reserva (opcional, contra el saldo real)
+                 arqueo de Mercado Pago (opcional, contra el saldo real)
 Semanal          arqueo Tesoro + inventario completo (Fase 2)
 ```
 
@@ -100,7 +100,7 @@ Definido en [`src/db/schema.ts`](src/db/schema.ts) (Drizzle + PostgreSQL).
 Notas:
 
 - **Cuentas:** sólo tres — **Tesoro** (efectivo, la caja del lugar), **Caja chica**
-  (efectivo operativo del día) y **Reserva** (adonde van las transferencias del día).
+  (efectivo operativo del día) y **Mercado Pago** (no es efectivo: adonde van las transferencias del día).
 - **`daily_closes`**: un registro por fecha. Se cargan las ventas brutas (efectivo
   y transferencia) y el arqueo de la caja. Los gastos se cargan durante el día
   como `money_movements` y al cerrar se les asigna el `cierre_id`.

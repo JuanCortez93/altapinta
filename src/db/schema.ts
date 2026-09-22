@@ -207,7 +207,7 @@ export const purchases = pgTable("purchases", {
   proveedorTexto: text("proveedor_texto"),
   fechaCompra: date("fecha_compra").notNull(),
   total: numeric("total", { precision: 14, scale: 2 }).notNull(),
-  /** Cuenta de la que salió la plata (Caja chica = efectivo, Reserva = transferencia). */
+  /** Cuenta de la que salió la plata (Caja chica = efectivo, Mercado Pago = transferencia). */
   cuentaPagoId: integer("cuenta_pago_id").references(() => moneyAccounts.id),
   usuarioId: integer("usuario_id").references(() => users.id),
   notas: text("notas"),
@@ -341,8 +341,8 @@ export const productionOrders = pgTable("production_orders", {
 
 /**
  * Cuentas de plata. Sólo tres: Tesoro (efectivo, la caja del lugar),
- * Caja chica (efectivo operativo del día) y Reserva (adonde van las
- * transferencias del día).
+ * Caja chica (efectivo operativo del día) y Mercado Pago (adonde van las
+ * transferencias del día; no es efectivo).
  */
 export const moneyAccounts = pgTable("money_accounts", {
   id: serial("id").primaryKey(),
@@ -396,7 +396,7 @@ export const dailyCloses = pgTable(
     efectivoATesoro: numeric("efectivo_a_tesoro", { precision: 14, scale: 2 })
       .notNull()
       .default("0"),
-    /** Saldo declarado de la Reserva (homebanking / app), opcional. */
+    /** Saldo declarado de Mercado Pago (homebanking / app), opcional. */
     saldoReservaApp: numeric("saldo_reserva_app", { precision: 14, scale: 2 }),
     observaciones: text("observaciones"),
     cerradoPor: integer("cerrado_por").references(() => users.id),

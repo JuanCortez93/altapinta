@@ -10,7 +10,7 @@ const CAT_LABEL: Record<string, string> = {
   venta_transferencia: "Venta por transferencia",
   deposito_tesoro: "Depósito al Tesoro",
   ajuste_arqueo: "Ajuste de arqueo",
-  ajuste_reserva: "Ajuste de Reserva",
+  ajuste_reserva: "Ajuste de Mercado Pago",
   fondo_inicial: "Fondo inicial",
   sueldo: "Sueldo",
   conversion: "Movimiento entre cuentas",
