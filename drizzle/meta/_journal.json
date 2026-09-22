@@ -43,6 +43,13 @@
       "when": 1789649473142,
       "tag": "0005_conversion",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790200000000,
+      "tag": "0006_cuenta_corriente",
+      "breakpoints": true
     }
   ]
 }

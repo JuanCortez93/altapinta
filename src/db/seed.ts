@@ -56,7 +56,12 @@ async function main() {
   const cuentas = [
     { nombre: "Tesoro", tipo: "efectivo" as const, esTesoro: true },
     { nombre: "Caja chica", tipo: "efectivo" as const, esCajaChica: true },
-    { nombre: "Mercado Pago", tipo: "digital" as const, esReserva: true },
+    {
+      nombre: "Cuenta Corriente (MP)",
+      tipo: "digital" as const,
+      esCuentaCorriente: true,
+    },
+    { nombre: "Reserva (MP)", tipo: "digital" as const, esReserva: true },
   ];
   for (const c of cuentas) {
     const [ya] = await db

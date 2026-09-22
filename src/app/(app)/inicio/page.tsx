@@ -28,6 +28,7 @@ export default async function InicioPage() {
           nombre: c.nombre,
           esTesoro: c.esTesoro,
           esCajaChica: c.esCajaChica,
+          esCuentaCorriente: c.esCuentaCorriente,
           esReserva: c.esReserva,
           saldo: c.saldo,
           inicializada: inicializadas.has(c.id),

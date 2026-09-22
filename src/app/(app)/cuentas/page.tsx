@@ -36,7 +36,7 @@ export default async function CuentasPage() {
         cuentas={cuentas.map((c) => ({ id: c.id, nombre: c.nombre }))}
       />
 
-      <section className="grid grid-cols-3 gap-2">
+      <section className="grid grid-cols-2 gap-2">
         {cuentas.map((c) => (
           <div
             key={c.id}

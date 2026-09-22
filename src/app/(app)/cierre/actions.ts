@@ -18,7 +18,7 @@ export interface CierrePayload {
   cerradoPorId: number;
   /** Efectivo contado en Caja chica al final del turno. De acá sale la venta en efectivo. */
   efectivoContado: number;
-  /** Venta en transferencia: se declara directo (sale del Mercado Pago / banco). */
+  /** Venta en transferencia: se declara directo (cae en la Cuenta Corriente de Mercado Pago). */
   ventaTransferencia: number;
   /** ids de gastos sueltos que corresponden a este turno. */
   gastoIds: number[];
@@ -28,7 +28,8 @@ export interface CierrePayload {
    * que se barre al Tesoro se calcula solo: efectivoContado − dejarEnCaja.
    */
   dejarEnCaja: number | null;
-  saldoReservaApp: number | null;
+  /** Saldo declarado de la Cuenta Corriente de Mercado Pago, antes de barrerla a la Reserva. */
+  saldoCcApp: number | null;
   observaciones: string;
 }
 
@@ -48,7 +49,7 @@ export type CierreResult =
       efectivoContado: number;
       efectivoATesoro: number;
       dejaEnCaja: number;
-      arqueoReserva: Arqueo | null;
+      arqueoCc: Arqueo | null;
     }
   | { ok: false; error: string };
 
@@ -104,8 +105,8 @@ export async function registrarCierreTurno(
   const cuentas = await db.select().from(moneyAccounts);
   const cajaChica = cuentas.find((c) => c.esCajaChica);
   const tesoro = cuentas.find((c) => c.esTesoro);
-  const reserva = cuentas.find((c) => c.esReserva);
-  if (!cajaChica || !tesoro || !reserva)
+  const cuentaCorriente = cuentas.find((c) => c.esCuentaCorriente);
+  if (!cajaChica || !tesoro || !cuentaCorriente)
     return { ok: false, error: "Faltan cuentas base. Corré el seed." };
 
   try {
@@ -148,7 +149,7 @@ export async function registrarCierreTurno(
           efectivoContado: money(p.efectivoContado),
           efectivoATesoro: money(efectivoATesoro),
           saldoReservaApp:
-            p.saldoReservaApp != null ? money(p.saldoReservaApp) : null,
+            p.saldoCcApp != null ? money(p.saldoCcApp) : null,
           observaciones: p.observaciones || null,
           cerradoPor: p.cerradoPorId,
           cerradoEn: new Date(),
@@ -188,7 +189,7 @@ export async function registrarCierreTurno(
           fecha: p.fecha,
           tipo: "ingreso",
           categoria: "venta_transferencia",
-          cuentaId: reserva.id,
+          cuentaId: cuentaCorriente.id,
           monto: money(p.ventaTransferencia),
           cierreId: cierre.id,
           descripcion: `Ventas ${LABEL_TURNO[p.turno]} por transferencia`,
@@ -211,25 +212,29 @@ export async function registrarCierreTurno(
         });
       }
 
-      let arqueoReserva: Arqueo | null = null;
-      if (p.saldoReservaApp != null) {
+      let arqueoCc: Arqueo | null = null;
+      if (p.saldoCcApp != null) {
         const todos = await tx.select().from(moneyMovements);
-        const rTeorico = saldoDe(todos, reserva.id, reserva.saldoInicial);
-        arqueoReserva = {
-          teorico: rTeorico,
-          contado: p.saldoReservaApp,
-          diferencia: p.saldoReservaApp - rTeorico,
+        const ccTeorico = saldoDe(
+          todos,
+          cuentaCorriente.id,
+          cuentaCorriente.saldoInicial,
+        );
+        arqueoCc = {
+          teorico: ccTeorico,
+          contado: p.saldoCcApp,
+          diferencia: p.saldoCcApp - ccTeorico,
         };
         await tx.insert(cashCounts).values({
           branchId: branch.id,
-          accountId: reserva.id,
+          accountId: cuentaCorriente.id,
           fecha: p.fecha,
           momento: "cierre_dia",
           cierreId: cierre.id,
-          saldoTeorico: money(arqueoReserva.teorico),
-          saldoContado: money(arqueoReserva.contado),
-          diferencia: money(arqueoReserva.diferencia),
-          nota: "Saldo declarado de Mercado Pago",
+          saldoTeorico: money(arqueoCc.teorico),
+          saldoContado: money(arqueoCc.contado),
+          diferencia: money(arqueoCc.diferencia),
+          nota: "Saldo declarado de la Cuenta Corriente (Mercado Pago)",
           usuarioId: p.cerradoPorId,
         });
       }
@@ -242,7 +247,7 @@ export async function registrarCierreTurno(
         efectivoContado: p.efectivoContado,
         efectivoATesoro,
         dejaEnCaja,
-        arqueoReserva,
+        arqueoCc,
       };
     });
 

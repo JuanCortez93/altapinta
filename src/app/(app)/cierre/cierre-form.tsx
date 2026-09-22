@@ -50,7 +50,7 @@ export function CierreForm({
     () => new Set(gastos.map((g) => g.id)),
   );
   const [dejarEnCaja, setDejarEnCaja] = useState("");
-  const [saldoReservaApp, setSaldoReservaApp] = useState("");
+  const [saldoCcApp, setSaldoCcApp] = useState("");
   const [observaciones, setObservaciones] = useState("");
 
   const [error, setError] = useState<string | null>(null);
@@ -110,8 +110,7 @@ export function CierreForm({
         ventaTransferencia: num(ventaTransferencia),
         gastoIds: [...gastoIds],
         dejarEnCaja: dejarEnCaja.trim() !== "" ? num(dejarEnCaja) : null,
-        saldoReservaApp:
-          saldoReservaApp.trim() !== "" ? num(saldoReservaApp) : null,
+        saldoCcApp: saldoCcApp.trim() !== "" ? num(saldoCcApp) : null,
         observaciones: observaciones.trim(),
       });
       if (!res.ok) return setError(res.error);
@@ -154,15 +153,14 @@ export function CierreForm({
               />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className={lbl}>Saldo en Mercado Pago (opcional)</span>
-              <Money
-                id="reserva"
-                value={saldoReservaApp}
-                onChange={setSaldoReservaApp}
-              />
+              <span className={lbl}>
+                Saldo en la Cuenta Corriente de MP (opcional)
+              </span>
+              <Money id="cc" value={saldoCcApp} onChange={setSaldoCcApp} />
               <span className="text-xs text-subtle">
-                Lo que ves ahora en la app, para chequear contra lo declarado
-                en transferencias.
+                Lo que ves ahora en la Cuenta Corriente, antes de pasarlo a
+                la Reserva, para chequear contra lo declarado en
+                transferencias.
               </span>
             </label>
           </div>
@@ -427,7 +425,7 @@ function Resultado({
   fecha: string;
 }) {
   const {
-    arqueoReserva,
+    arqueoCc,
     ventaEfectivo,
     ventaTransferencia,
     efectivoContado,
@@ -453,9 +451,9 @@ function Resultado({
           <Linea t="Va al Tesoro" v={fmtARS(efectivoATesoro)} />
           <Linea t="Queda en Caja chica" v={fmtARS(dejaEnCaja)} />
         </dl>
-        {arqueoReserva && (
+        {arqueoCc && (
           <div className="mt-4">
-            <ArqueoLinea titulo="Mercado Pago" a={arqueoReserva} />
+            <ArqueoLinea titulo="Cuenta Corriente (MP)" a={arqueoCc} />
           </div>
         )}
       </section>

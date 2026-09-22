@@ -70,7 +70,7 @@ export async function registrarCompra(
       ? cuentas.find((c) => c.esCajaChica)
       : p.formaPago === "tesoro"
         ? cuentas.find((c) => c.esTesoro)
-        : cuentas.find((c) => c.esReserva);
+        : cuentas.find((c) => c.esCuentaCorriente);
   if (!cuentaPago)
     return { ok: false, error: "Falta la cuenta de pago. Corré el seed." };
 

@@ -26,7 +26,7 @@ type FormaPago = "efectivo" | "transferencia" | "tesoro";
 
 const FORMAS_PAGO: { value: FormaPago; label: string; icon: LucideIcon }[] = [
   { value: "efectivo", label: "Caja chica", icon: Banknote },
-  { value: "transferencia", label: "Transferencia", icon: ArrowRightLeft },
+  { value: "transferencia", label: "Cuenta Corriente", icon: ArrowRightLeft },
   { value: "tesoro", label: "Tesoro", icon: Landmark },
 ];
 

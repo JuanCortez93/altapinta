@@ -340,9 +340,11 @@ export const productionOrders = pgTable("production_orders", {
 /* ------------------------------------------------------------------ */
 
 /**
- * Cuentas de plata. Sólo tres: Tesoro (efectivo, la caja del lugar),
- * Caja chica (efectivo operativo del día) y Mercado Pago (adonde van las
- * transferencias del día; no es efectivo).
+ * Cuentas de plata. Cuatro: Tesoro (efectivo, la caja del lugar), Caja
+ * chica (efectivo operativo del día), Cuenta Corriente (Mercado Pago:
+ * adonde caen las transferencias del día) y Reserva (Mercado Pago: adonde
+ * se barre la Cuenta Corriente al final del día, genera interés). Ninguna
+ * de las dos de Mercado Pago es efectivo.
  */
 export const moneyAccounts = pgTable("money_accounts", {
   id: serial("id").primaryKey(),
@@ -352,7 +354,9 @@ export const moneyAccounts = pgTable("money_accounts", {
   esTesoro: boolean("es_tesoro").notNull().default(false),
   /** Efectivo operativo del día. */
   esCajaChica: boolean("es_caja_chica").notNull().default(false),
-  /** Adonde caen las transferencias del día. */
+  /** Cuenta corriente de Mercado Pago: adonde caen las transferencias del día. */
+  esCuentaCorriente: boolean("es_cuenta_corriente").notNull().default(false),
+  /** Reserva de Mercado Pago (genera interés): adonde se barre la Cuenta Corriente al cierre del día. */
   esReserva: boolean("es_reserva").notNull().default(false),
   saldoInicial: numeric("saldo_inicial", { precision: 14, scale: 2 })
     .notNull()

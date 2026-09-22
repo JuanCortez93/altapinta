@@ -18,6 +18,7 @@ type Cuenta = {
   nombre: string;
   esTesoro: boolean;
   esCajaChica: boolean;
+  esCuentaCorriente: boolean;
   esReserva: boolean;
   saldo: number;
   inicializada: boolean;
@@ -27,6 +28,7 @@ export function InicioForm({ hoy, cuentas }: { hoy: string; cuentas: Cuenta[] })
   const [fecha, setFecha] = useState(hoy);
   const [tesoro, setTesoro] = useState("");
   const [cajaChica, setCajaChica] = useState("");
+  const [cuentaCorriente, setCuentaCorriente] = useState("");
   const [reserva, setReserva] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -34,6 +36,7 @@ export function InicioForm({ hoy, cuentas }: { hoy: string; cuentas: Cuenta[] })
 
   const cTesoro = cuentas.find((c) => c.esTesoro);
   const cCaja = cuentas.find((c) => c.esCajaChica);
+  const cCc = cuentas.find((c) => c.esCuentaCorriente);
   const cReserva = cuentas.find((c) => c.esReserva);
 
   function submit() {
@@ -44,6 +47,7 @@ export function InicioForm({ hoy, cuentas }: { hoy: string; cuentas: Cuenta[] })
         fecha,
         tesoro: num(tesoro),
         cajaChica: num(cajaChica),
+        cuentaCorriente: num(cuentaCorriente),
         reserva: num(reserva),
       });
       if (!res.ok) return setError(res.error);
@@ -55,6 +59,7 @@ export function InicioForm({ hoy, cuentas }: { hoy: string; cuentas: Cuenta[] })
       );
       setTesoro("");
       setCajaChica("");
+      setCuentaCorriente("");
       setReserva("");
     });
   }
@@ -95,9 +100,17 @@ export function InicioForm({ hoy, cuentas }: { hoy: string; cuentas: Cuenta[] })
             cuenta={cCaja}
           />
           <Campo
+            id="cuenta-corriente"
+            label="Cuenta Corriente (MP)"
+            ayuda="Lo que tengas ahí ahora, antes de barrerlo a la Reserva."
+            value={cuentaCorriente}
+            onChange={setCuentaCorriente}
+            cuenta={cCc}
+          />
+          <Campo
             id="reserva"
-            label="Mercado Pago"
-            ayuda="Lo que ya tengas ahí guardado de transferencias, si aplica."
+            label="Reserva (MP)"
+            ayuda="Lo que ya tengas guardado ahí generando interés."
             value={reserva}
             onChange={setReserva}
             cuenta={cReserva}

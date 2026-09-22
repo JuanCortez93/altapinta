@@ -12,6 +12,7 @@ export interface SaldoInicialPayload {
   fecha: string;
   tesoro: number;
   cajaChica: number;
+  cuentaCorriente: number;
   reserva: number;
 }
 
@@ -33,8 +34,9 @@ export async function registrarSaldoInicial(
   const cuentas = await db.select().from(moneyAccounts);
   const cajaChica = cuentas.find((c) => c.esCajaChica);
   const tesoro = cuentas.find((c) => c.esTesoro);
+  const cuentaCorriente = cuentas.find((c) => c.esCuentaCorriente);
   const reserva = cuentas.find((c) => c.esReserva);
-  if (!cajaChica || !tesoro || !reserva)
+  if (!cajaChica || !tesoro || !cuentaCorriente || !reserva)
     return { ok: false, error: "Faltan cuentas base. Corré el seed." };
 
   const yaInicializadas = await getCuentasInicializadas();
@@ -42,6 +44,7 @@ export async function registrarSaldoInicial(
   const pedidos = [
     { cuenta: tesoro, monto: p.tesoro },
     { cuenta: cajaChica, monto: p.cajaChica },
+    { cuenta: cuentaCorriente, monto: p.cuentaCorriente },
     { cuenta: reserva, monto: p.reserva },
   ].filter((x) => Number.isFinite(x.monto) && x.monto > 0);
 

@@ -19,8 +19,8 @@ function hoyISO(): string {
 async function cuentaPorMetodo(metodo: Metodo) {
   const rows = await db.select().from(moneyAccounts);
   const cajaChica = rows.find((c) => c.esCajaChica);
-  const reserva = rows.find((c) => c.esReserva);
-  return metodo === "efectivo" ? cajaChica : reserva;
+  const cuentaCorriente = rows.find((c) => c.esCuentaCorriente);
+  return metodo === "efectivo" ? cajaChica : cuentaCorriente;
 }
 
 /** Un gasto suelto del día (las ventas se cargan en el cierre del turno). */
