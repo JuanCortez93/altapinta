@@ -28,13 +28,13 @@ export const SALIDA_CATEGORIAS: SalidaCatDef[] = [
     value: "envios",
     label: "Envíos",
     icon: "Bike",
-    ayuda: "Reparto a domicilio (cadete propio, moto).",
+    ayuda: "Reparto de mercadería a domicilio (cadete, moto o Uber cuando se usa para repartir).",
   },
   {
     value: "uber",
-    label: "Uber",
+    label: "Traslado",
     icon: "Car",
-    ayuda: "Uber Envíos.",
+    ayuda: "Uber para moverse el personal, no para repartir mercadería.",
   },
   {
     value: "proveedor",

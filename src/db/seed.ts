@@ -121,15 +121,18 @@ async function main() {
   }
 
   // ---- Proveedores --------------------------------------------------
-  for (const nombre of ["Miguel"]) {
+  const proveedores = [
+    { nombre: "Miguel", contacto: "Pollo recién faenado" },
+    { nombre: "Verdulería", contacto: null },
+    { nombre: "Mercado", contacto: null },
+  ];
+  for (const { nombre, contacto } of proveedores) {
     const [ya] = await db
       .select()
       .from(schema.suppliers)
       .where(eq(schema.suppliers.nombre, nombre));
     if (!ya) {
-      await db
-        .insert(schema.suppliers)
-        .values({ nombre, contacto: "Pollo recién faenado" });
+      await db.insert(schema.suppliers).values({ nombre, contacto });
       console.log("+ proveedor:", nombre);
     }
   }
