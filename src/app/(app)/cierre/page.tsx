@@ -5,7 +5,7 @@ import {
   getMovimientosSueltosDelDia,
   getCuentasConSaldo,
 } from "@/lib/queries";
-import { todayAR, fmtFecha } from "@/lib/format";
+import { todayAR, fmtFecha, esDomingo } from "@/lib/format";
 import { CierreForm } from "./cierre-form";
 
 export const dynamic = "force-dynamic";
@@ -37,9 +37,10 @@ export default async function CierrePage({
 
   const cajaChica = cuentas.find((c) => c.esCajaChica);
   const hechos = cierres.map((c) => c.turno);
-  const disponibles = (["manana", "tarde", "domingo"] as const).filter(
-    (t) => !hechos.includes(t),
-  );
+  const turnosDelDia = esDomingo(fecha)
+    ? (["domingo"] as const)
+    : (["manana", "tarde"] as const);
+  const disponibles = turnosDelDia.filter((t) => !hechos.includes(t));
 
   return (
     <div className="flex flex-col gap-5">

@@ -26,3 +26,9 @@ export function fmtFecha(iso: string): string {
     month: "short",
   });
 }
+
+/** yyyy-mm-dd -> true si es domingo. */
+export function esDomingo(iso: string): boolean {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 0;
+}
