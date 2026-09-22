@@ -2,10 +2,18 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Box, Hash, Scale, Trash2, type LucideIcon } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Banknote,
+  Box,
+  Hash,
+  Landmark,
+  Scale,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { fmtARS } from "@/lib/format";
 import { PRESENTACIONES, type Presentacion } from "@/lib/compras";
-import { MetodoToggle } from "@/components/movimiento-quick-add";
 import { registrarCompra, type CompraResult } from "./actions";
 
 const field =
@@ -13,6 +21,47 @@ const field =
 const lbl = "text-sm font-medium text-muted";
 
 const PRES_ICON: Record<string, LucideIcon> = { Box, Scale, Hash };
+
+type FormaPago = "efectivo" | "transferencia" | "tesoro";
+
+const FORMAS_PAGO: { value: FormaPago; label: string; icon: LucideIcon }[] = [
+  { value: "efectivo", label: "Caja chica", icon: Banknote },
+  { value: "transferencia", label: "Transferencia", icon: ArrowRightLeft },
+  { value: "tesoro", label: "Tesoro", icon: Landmark },
+];
+
+function FormaPagoToggle({
+  value,
+  onChange,
+}: {
+  value: FormaPago;
+  onChange: (v: FormaPago) => void;
+}) {
+  return (
+    <div className="flex gap-1.5">
+      {FORMAS_PAGO.map((f) => {
+        const active = value === f.value;
+        return (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => onChange(f.value)}
+            aria-pressed={active}
+            className={
+              "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-[color,background-color,border-color] duration-150 active:translate-y-px " +
+              (active
+                ? "border-accent bg-accent-weak text-accent"
+                : "border-line text-muted hover:border-line-strong hover:text-ink")
+            }
+          >
+            <f.icon className="size-3.5" />
+            {f.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const num = (s: string) => {
   const n = Number(String(s).replace(",", "."));
@@ -60,9 +109,7 @@ export function CompraForm({ hoy, usuarios, proveedores, productos }: Props) {
   const [administradorId, setAdministradorId] = useState("");
   const [proveedorSel, setProveedorSel] = useState("");
   const [proveedorTexto, setProveedorTexto] = useState("");
-  const [formaPago, setFormaPago] = useState<"efectivo" | "transferencia">(
-    "transferencia",
-  );
+  const [formaPago, setFormaPago] = useState<FormaPago>("transferencia");
   const [lineas, setLineas] = useState<Linea[]>([nuevaLinea()]);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Extract<CompraResult, { ok: true }> | null>(
@@ -241,7 +288,7 @@ export function CompraForm({ hoy, usuarios, proveedores, productos }: Props) {
           </div>
           <div className="flex flex-col gap-1.5">
             <span className={lbl}>Forma de pago</span>
-            <MetodoToggle value={formaPago} onChange={setFormaPago} />
+            <FormaPagoToggle value={formaPago} onChange={setFormaPago} />
           </div>
         </div>
       </section>

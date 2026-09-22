@@ -31,7 +31,7 @@ export interface CompraPayload {
   administradorId: number;
   proveedorId: number | null;
   proveedorTexto: string;
-  formaPago: "efectivo" | "transferencia";
+  formaPago: "efectivo" | "transferencia" | "tesoro";
   lineas: LineaCompra[];
 }
 
@@ -68,7 +68,9 @@ export async function registrarCompra(
   const cuentaPago =
     p.formaPago === "efectivo"
       ? cuentas.find((c) => c.esCajaChica)
-      : cuentas.find((c) => c.esReserva);
+      : p.formaPago === "tesoro"
+        ? cuentas.find((c) => c.esTesoro)
+        : cuentas.find((c) => c.esReserva);
   if (!cuentaPago)
     return { ok: false, error: "Falta la cuenta de pago. Corré el seed." };
 
