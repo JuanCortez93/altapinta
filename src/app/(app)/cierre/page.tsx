@@ -68,7 +68,7 @@ export default async function CierrePage({
         </div>
       ) : (
         <CierreForm
-          key={fecha}
+          key={`${fecha}:${disponibles.join(",")}`}
           fecha={fecha}
           usuarios={usuarios.map((u) => ({ id: u.id, nombre: u.nombre }))}
           gastos={gastos.map((g) => ({

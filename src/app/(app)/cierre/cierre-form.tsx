@@ -424,6 +424,7 @@ function Resultado({
   result: Extract<CierreResult, { ok: true }>;
   fecha: string;
 }) {
+  const router = useRouter();
   const {
     arqueoCc,
     ventaEfectivo,
@@ -461,12 +462,13 @@ function Resultado({
         <Link href="/" className="btn btn-primary h-11 flex-1 text-sm">
           Ver el día
         </Link>
-        <Link
-          href={`/cierre?fecha=${fecha}`}
+        <button
+          type="button"
+          onClick={() => router.refresh()}
           className="btn btn-secondary h-11 flex-1 text-sm"
         >
           Otro turno
-        </Link>
+        </button>
       </div>
     </div>
   );
