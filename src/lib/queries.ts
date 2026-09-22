@@ -201,6 +201,39 @@ export async function getMovimientosSueltosDelDia(fecha: string) {
     .orderBy(moneyMovements.id);
 }
 
+export type MovimientoSuelto = Awaited<
+  ReturnType<typeof getMovimientosSueltosPendientes>
+>[number];
+
+/**
+ * Todos los gastos/compras/retiros sueltos (sin cierre), de cualquier fecha.
+ * Para poder ver y corregir cosas de días anteriores que quedaron sin
+ * enganchar a un cierre (antes solo se veían los de hoy).
+ */
+export async function getMovimientosSueltosPendientes() {
+  return db
+    .select({
+      id: moneyMovements.id,
+      fecha: moneyMovements.fecha,
+      tipo: moneyMovements.tipo,
+      categoria: moneyMovements.categoria,
+      gastoCategoria: moneyMovements.gastoCategoria,
+      monto: moneyMovements.monto,
+      descripcion: moneyMovements.descripcion,
+      cuenta: moneyAccounts.nombre,
+      cierreId: moneyMovements.cierreId,
+    })
+    .from(moneyMovements)
+    .leftJoin(moneyAccounts, eq(moneyAccounts.id, moneyMovements.cuentaId))
+    .where(
+      and(
+        isNull(moneyMovements.cierreId),
+        inArray(moneyMovements.categoria, [...CATS_SALIDA]),
+      ),
+    )
+    .orderBy(desc(moneyMovements.fecha), moneyMovements.id);
+}
+
 export async function getArqueosDelDia(fecha: string) {
   return db
     .select({
