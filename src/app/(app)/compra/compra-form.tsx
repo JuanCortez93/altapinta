@@ -8,6 +8,7 @@ import {
   Box,
   Hash,
   Landmark,
+  PiggyBank,
   Scale,
   Trash2,
   type LucideIcon,
@@ -22,12 +23,13 @@ const lbl = "text-sm font-medium text-muted";
 
 const PRES_ICON: Record<string, LucideIcon> = { Box, Scale, Hash };
 
-type FormaPago = "efectivo" | "transferencia" | "tesoro";
+type FormaPago = "efectivo" | "transferencia" | "tesoro" | "reserva";
 
 const FORMAS_PAGO: { value: FormaPago; label: string; icon: LucideIcon }[] = [
   { value: "efectivo", label: "Caja chica", icon: Banknote },
   { value: "transferencia", label: "Cuenta Corriente", icon: ArrowRightLeft },
   { value: "tesoro", label: "Tesoro", icon: Landmark },
+  { value: "reserva", label: "Reserva", icon: PiggyBank },
 ];
 
 function FormaPagoToggle({
@@ -38,7 +40,7 @@ function FormaPagoToggle({
   onChange: (v: FormaPago) => void;
 }) {
   return (
-    <div className="flex gap-1.5">
+    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
       {FORMAS_PAGO.map((f) => {
         const active = value === f.value;
         return (
@@ -48,7 +50,7 @@ function FormaPagoToggle({
             onClick={() => onChange(f.value)}
             aria-pressed={active}
             className={
-              "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-[color,background-color,border-color] duration-150 active:translate-y-px " +
+              "flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-[color,background-color,border-color] duration-150 active:translate-y-px " +
               (active
                 ? "border-accent bg-accent-weak text-accent"
                 : "border-line text-muted hover:border-line-strong hover:text-ink")
