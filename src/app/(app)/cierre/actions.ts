@@ -212,18 +212,16 @@ export async function registrarCierreTurno(
         });
       }
 
+      // El teórico acá no es el saldo acumulado de la cuenta (todavía se
+      // carga todo junto al final del día, sin registrar en tiempo real), es
+      // simplemente lo que se declaró como venta por transferencia en este
+      // turno: lo que el contado (saldo real de la app) debería reflejar.
       let arqueoCc: Arqueo | null = null;
       if (p.saldoCcApp != null) {
-        const todos = await tx.select().from(moneyMovements);
-        const ccTeorico = saldoDe(
-          todos,
-          cuentaCorriente.id,
-          cuentaCorriente.saldoInicial,
-        );
         arqueoCc = {
-          teorico: ccTeorico,
+          teorico: p.ventaTransferencia,
           contado: p.saldoCcApp,
-          diferencia: p.saldoCcApp - ccTeorico,
+          diferencia: p.saldoCcApp - p.ventaTransferencia,
         };
         await tx.insert(cashCounts).values({
           branchId: branch.id,
