@@ -234,6 +234,13 @@ export async function getMovimientosSueltosPendientes() {
     .orderBy(desc(moneyMovements.fecha), moneyMovements.id);
 }
 
+/** fecha + turno de todos los cierres, para saber qué fechas ya quedaron atrás. */
+export async function getFechasTurnosCerrados() {
+  return db
+    .select({ fecha: dailyCloses.fecha, turno: dailyCloses.turno })
+    .from(dailyCloses);
+}
+
 export async function getArqueosDelDia(fecha: string) {
   return db
     .select({

@@ -55,10 +55,13 @@ type Seleccion = { checked: Set<number>; onToggle: (id: number) => void };
 export function MovimientoLista({
   items,
   seleccion,
+  bloqueado = false,
   vacio = "Nada cargado todavía hoy.",
 }: {
   items: MovimientoRow[];
   seleccion?: Seleccion;
+  /** Ese día ya quedó atrás en los cierres: no se puede editar ni borrar nada. */
+  bloqueado?: boolean;
   vacio?: string;
 }) {
   const [editando, setEditando] = useState<number | null>(null);
@@ -76,6 +79,7 @@ export function MovimientoLista({
             key={m.id}
             m={m}
             seleccion={seleccion}
+            bloqueado={bloqueado}
             onEditar={() => setEditando(m.id)}
           />
         ),
@@ -87,10 +91,12 @@ export function MovimientoLista({
 function ViewRow({
   m,
   seleccion,
+  bloqueado,
   onEditar,
 }: {
   m: MovimientoRow;
   seleccion?: Seleccion;
+  bloqueado: boolean;
   onEditar: () => void;
 }) {
   const router = useRouter();
@@ -98,7 +104,7 @@ function ViewRow({
   const metodo = metodoDeCuenta(m.cuenta);
   const iconKey = catDef(m.gastoCategoria ?? m.categoria)?.icon ?? "Receipt";
   const Icon: LucideIcon = ICONS[iconKey] ?? Receipt;
-  const editable = !m.cierreId;
+  const editable = !m.cierreId && !bloqueado;
 
   return (
     <li className="flex items-center gap-3 py-2.5 text-sm">

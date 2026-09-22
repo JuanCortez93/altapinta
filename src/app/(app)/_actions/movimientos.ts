@@ -3,10 +3,24 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { moneyAccounts, moneyMovements } from "@/db/schema";
+import { dailyCloses, moneyAccounts, moneyMovements } from "@/db/schema";
 import { assertAuthed } from "@/lib/session";
 import { getBranch } from "@/lib/queries";
-import { movimientoDeGasto, type Metodo, type SalidaCategoria } from "@/lib/gastos";
+import {
+  fechaCerradaParaSueltos,
+  movimientoDeGasto,
+  type Metodo,
+  type SalidaCategoria,
+} from "@/lib/gastos";
+
+async function assertFechaEditable(fecha: string): Promise<string | null> {
+  const cierres = await db
+    .select({ fecha: dailyCloses.fecha, turno: dailyCloses.turno })
+    .from(dailyCloses);
+  if (fechaCerradaParaSueltos(fecha, cierres))
+    return "Ese día ya quedó atrás en los cierres, no se puede tocar desde acá.";
+  return null;
+}
 
 const money = (n: number) => n.toFixed(2);
 
@@ -98,6 +112,8 @@ export async function editarMovimiento(
   if (!mov) return { ok: false, error: "No existe." };
   if (mov.cierreId)
     return { ok: false, error: "Ese gasto ya quedó en un cierre." };
+  const errFecha = await assertFechaEditable(mov.fecha);
+  if (errFecha) return { ok: false, error: errFecha };
 
   const cuenta = await cuentaPorMetodo(p.metodo);
   if (!cuenta) return { ok: false, error: "Falta la cuenta. Corré el seed." };
@@ -129,6 +145,8 @@ export async function borrarMovimiento(id: number): Promise<MovimientoResult> {
   if (!mov) return { ok: false, error: "No existe." };
   if (mov.cierreId)
     return { ok: false, error: "Ese gasto ya quedó en un cierre." };
+  const errFecha = await assertFechaEditable(mov.fecha);
+  if (errFecha) return { ok: false, error: errFecha };
 
   await db.delete(moneyMovements).where(eq(moneyMovements.id, id));
   revalidar();

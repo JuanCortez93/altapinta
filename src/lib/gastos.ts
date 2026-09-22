@@ -1,3 +1,5 @@
+import { esDomingo } from "./format";
+
 /**
  * Movimientos sueltos del día: ventas y gastos. Se cargan en cualquier
  * momento (o durante el cierre) y quedan enganchados al cierre del día.
@@ -107,4 +109,27 @@ export function etiquetaMovimiento(
  */
 export function metodoDeCuenta(nombreCuenta: string | null): Metodo {
   return nombreCuenta === "Cuenta Corriente (MP)" ? "transferencia" : "efectivo";
+}
+
+export type CierreFecha = { fecha: string; turno: string };
+
+/**
+ * Un gasto/compra/retiro suelto de una fecha ya no se puede tocar cuando esa
+ * fecha "quedó atrás" en la reconciliación diaria: o bien ya se cerraron
+ * todos los turnos que le correspondían (no queda cierre al que engancharlo),
+ * o bien ya se cerró algún turno de un día posterior (se pasó de página, aunque
+ * a esta fecha le falte algún turno suelto, como un "tarde" que nunca se cerró).
+ */
+export function fechaCerradaParaSueltos(
+  fecha: string,
+  cierres: CierreFecha[],
+): boolean {
+  const maxFecha = cierres.reduce((max, c) => (c.fecha > max ? c.fecha : max), "");
+  if (maxFecha && fecha < maxFecha) return true;
+
+  const turnosDelDia: string[] = esDomingo(fecha) ? ["domingo"] : ["manana", "tarde"];
+  const turnosHechos = new Set(
+    cierres.filter((c) => c.fecha === fecha).map((c) => c.turno),
+  );
+  return turnosDelDia.every((t) => turnosHechos.has(t));
 }
